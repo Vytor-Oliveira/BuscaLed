@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build outputs
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Coverage / testes
+coverage/
+.nyc_output/
+lcov.info
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# SonarCloud / Sonar scanner
+.scannerwork/
+
+# Docker
+*.pid
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Prisma
+backend/prisma/*.db
+
+# New Relic
+newrelic_agent.log

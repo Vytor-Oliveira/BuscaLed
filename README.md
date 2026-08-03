@@ -7,7 +7,7 @@
 Motor de Compatibilidade e Orquestração de Pedidos para Iluminação Automotiva LED.
 
 > Projeto de Portfólio — Engenharia de Software, Católica SC.
-> RFC completa em [`/docs/RFC.pdf`](./docs/RFC.pdf).
+> RFC completa: a ser publicada em `/docs/RFC.pdf` assim que disponível.
 
 ## O que é
 

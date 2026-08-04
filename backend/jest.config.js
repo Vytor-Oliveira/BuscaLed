@@ -1,7 +1,3 @@
-/**
- * Exemplo de configuração Jest para o backend.
- * Renomeie para jest.config.js na raiz de /backend quando iniciar o módulo.
- */
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",

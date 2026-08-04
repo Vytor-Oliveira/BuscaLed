@@ -1,6 +1,8 @@
 # BuscaLED
 
-![Logo do BuscaLED](./docs/logo.png)
+<p align="center">
+  <img src="./docs/logo.png" alt="Logo do BuscaLED" width="220" />
+</p>
 
 [![CI](https://github.com/Vytor-Oliveira/BuscaLed/actions/workflows/ci.yml/badge.svg)](https://github.com/Vytor-Oliveira/BuscaLed/actions/workflows/ci.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Vytor-Oliveira_BuscaLed&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Vytor-Oliveira_BuscaLed)

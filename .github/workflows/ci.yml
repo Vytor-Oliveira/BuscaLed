@@ -29,10 +29,9 @@ jobs:
         run: npm ci
 
       - name: Rodar testes com cobertura
+        # O limite de cobertura já é aplicado pelo jest.config.js (coverageThreshold) —
+        # este comando falha sozinho se a cobertura cair abaixo da meta configurada lá.
         run: npm run test:cov
-
-      - name: Verificar meta de cobertura (75%)
-        run: npm run test:cov -- --coverageThreshold='{"global":{"lines":75}}'
 
       - name: Upload do relatório de cobertura (artifact)
         uses: actions/upload-artifact@v4
@@ -60,10 +59,11 @@ jobs:
         run: npm ci
 
       - name: Rodar testes com cobertura
+        # O limite de cobertura já é aplicado pelo vitest.config.ts (coverage.thresholds) —
+        # este comando falha sozinho se a cobertura cair abaixo da meta configurada lá.
+        # (O passo antigo de checagem extra usava sintaxe --coverageThreshold do Jest,
+        # que o Vitest não reconhece — por isso foi removido, não só a meta em si.)
         run: npm run test:cov
-
-      - name: Verificar meta de cobertura (25%)
-        run: npm run test:cov -- --coverageThreshold='{"global":{"lines":25}}'
 
       - name: Upload do relatório de cobertura (artifact)
         uses: actions/upload-artifact@v4

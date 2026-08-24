@@ -23,7 +23,7 @@ export class PlateNotFoundError extends Error {
 
 export class PlateServiceTimeoutError extends Error {
   constructor() {
-    super("Timeout ao consultar apiplacas.com.br");
+    super("Timeout ao consultar a PuxaPlaca");
     this.name = "PlateServiceTimeoutError";
   }
 }

@@ -6,18 +6,32 @@ import {
 } from "./types";
 
 const TIMEOUT_MS = 5000; // RNF13
+const BASE_URL = "https://api.puxaplaca.app";
 
-interface ApiplacasResponse {
+interface PuxaPlacaBasicoDados {
   marca: string;
   modelo: string;
-  ano: number;
+  ano: string; // API real retorna string (ex: "1979"), apesar da doc dizer integer
   cor: string;
 }
 
+interface PuxaPlacaResponse {
+  error: boolean;
+  message: string;
+  basico?: {
+    error: boolean;
+    message: string;
+    dados?: PuxaPlacaBasicoDados;
+  };
+}
+
 /**
- * Implementação real da apiplacas.com.br (RF04). Ainda não validada contra
- * a API de verdade — o formato exato da resposta (ApiplacasResponse) deve
- * ser conferido assim que o cadastro for aprovado e o token estiver disponível.
+ * Implementação real da PuxaPlaca (ex-apiplacas.com.br, RF04). Contrato
+ * validado com uma consulta real em 2026-08-24 (endpoint /v2/consulta/:placa,
+ * token via header, `ano` vem como string apesar da doc dizer integer). O
+ * token usado só tem a permissão "Básica" habilitada, então a API nem chega
+ * a devolver chassi/renavam/roubo-furto/FIPE — só basico.dados é extraído,
+ * no mesmo espírito de RN02.
  */
 export class HttpPlateService implements PlateService {
   constructor(private readonly token: string) {}
@@ -27,26 +41,31 @@ export class HttpPlateService implements PlateService {
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
-      const response = await fetch(
-        `https://apiplacas.com.br/api/v1/placa/${encodeURIComponent(plate)}?token=${this.token}`,
-        { signal: controller.signal }
-      );
+      const response = await fetch(`${BASE_URL}/v2/consulta/${encodeURIComponent(plate)}`, {
+        headers: { token: this.token, Accept: "application/json" },
+        signal: controller.signal,
+      });
 
-      if (response.status === 404) {
+      if (response.status === 404 || response.status === 406) {
         throw new PlateNotFoundError(plate);
       }
 
       if (!response.ok) {
-        throw new Error(`apiplacas.com.br respondeu com status ${response.status}`);
+        throw new Error(`PuxaPlaca respondeu com status ${response.status}`);
       }
 
-      const data = (await response.json()) as ApiplacasResponse;
+      const data = (await response.json()) as PuxaPlacaResponse;
+      const dados = data.basico?.dados;
+
+      if (data.error || data.basico?.error || !dados) {
+        throw new PlateNotFoundError(plate);
+      }
 
       return {
-        make: data.marca,
-        model: data.modelo,
-        year: data.ano,
-        color: data.cor,
+        make: dados.marca,
+        model: dados.modelo,
+        year: Number(dados.ano),
+        color: dados.cor,
       };
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {

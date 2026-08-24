@@ -36,6 +36,14 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Claude Code (config local por máquina/usuário)
+.claude/settings.local.json
+
+# Docs internas — não vão para o repositório público
+docs/roteiro-tecnico.md
+docs/cronograma-academico.md
+docs/guia-outro-computador.md
+
 # Prisma
 backend/prisma/*.db
 

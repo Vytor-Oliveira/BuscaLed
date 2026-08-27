@@ -1,12 +1,11 @@
-import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
+import { prisma } from "../db/prisma";
 import { PrismaCompatibilityRepository } from "../repositories/compatibility.repository";
 import { CompatibilityService } from "../services/compatibility/compatibility.service";
 import { VehicleNotFoundError } from "../services/compatibility/types";
 
 export const compatibilityRouter = Router();
 
-const prisma = new PrismaClient();
 const service = new CompatibilityService(new PrismaCompatibilityRepository(prisma));
 
 compatibilityRouter.get("/", async (req, res, next) => {

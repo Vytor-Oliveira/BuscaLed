@@ -7,10 +7,10 @@ module.exports = {
   coverageReporters: ["text", "lcov"],
   coverageThreshold: {
     global: {
-      // Meta final do RNF05 e 75% (M6, ver docs/roteiro-tecnico.md). Piso
-      // temporario mais baixo durante M1-M5 para nao bloquear o pipeline
-      // antes da fase de testes/qualidade — subir gradualmente ate M6.
-      lines: 35,
+      // Meta do RNF05 (75%, prevista só pro M6) já atingida no M2 graças
+      // aos testes de integração reais (auth + garagem), bem antes do
+      // previsto no roteiro.
+      lines: 75,
     },
   },
 };

@@ -8,8 +8,9 @@ datasource db {
 }
 
 enum UserRole {
-  CLIENTE
-  VENDEDOR
+  USER
+  REP
+  ADMIN
 }
 
 enum HeadlightPosition {
@@ -28,15 +29,19 @@ enum ReservationStatus {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String?
-  googleId     String?  @unique
-  role         UserRole @default(CLIENTE)
-  createdAt    DateTime @default(now())
+  id                         String    @id @default(uuid())
+  name                       String
+  email                      String    @unique
+  passwordHash               String?
+  googleId                   String?   @unique
+  role                       UserRole  @default(USER)
+  emailVerifiedAt            DateTime?
+  emailConfirmationToken     String?
+  emailConfirmationExpiresAt DateTime?
+  createdAt                  DateTime  @default(now())
 
-  reservations Reservation[]
+  reservations   Reservation[]
+  garageVehicles GarageVehicle[]
 }
 
 // Modelo de veículo é resolvido em tempo de requisição (via API de placas) e
@@ -52,6 +57,23 @@ model VehicleModel {
   compatibilities LedCompatibility[]
 
   @@unique([make, model, yearStart, yearEnd])
+}
+
+// Garagem Virtual (RF03) — veículos salvos pelo próprio usuário. A placa
+// usada para resolver make/model/year (via PlateService) nunca é gravada
+// aqui nem em nenhum outro lugar — Privacy by Design (RF05/RN02).
+model GarageVehicle {
+  id        String   @id @default(uuid())
+  userId    String
+  make      String
+  model     String
+  year      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model LedModel {

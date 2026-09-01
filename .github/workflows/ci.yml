@@ -13,6 +13,30 @@ jobs:
     defaults:
       run:
         working-directory: ./backend
+    # Os testes de auth/garagem são de integração real (sem mock, via
+    # supertest) e precisam de um Postgres de verdade — este serviço
+    # efêmero do GitHub Actions cobre isso, sem custo. O teste que consulta
+    # a API paga da PuxaPlaca fica desligado por padrão (RUN_PAID_API_TESTS
+    # não é definido aqui), então nunca roda automaticamente no CI.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: buscaled
+          POSTGRES_PASSWORD: buscaled_dev
+          POSTGRES_DB: buscaled
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U buscaled"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://buscaled:buscaled_dev@localhost:5432/buscaled
+      JWT_SECRET: ci-only-access-secret-nao-usar-em-producao
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-nao-usar-em-producao
+      APP_BASE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,6 +51,9 @@ jobs:
 
       - name: Instalar dependências
         run: npm ci
+
+      - name: Aplicar migrations no Postgres do CI
+        run: npx prisma migrate deploy
 
       - name: Rodar testes com cobertura
         # O limite de cobertura já é aplicado pelo jest.config.js (coverageThreshold) —

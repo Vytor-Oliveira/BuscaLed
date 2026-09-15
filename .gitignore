@@ -47,5 +47,8 @@ docs/guia-outro-computador.md
 # Prisma
 backend/prisma/*.db
 
+# Planilha proprietária do parceiro Shocklight — nunca commitar (M3)
+backend/data/
+
 # New Relic
 newrelic_agent.log

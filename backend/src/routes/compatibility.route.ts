@@ -17,12 +17,12 @@ compatibilityRouter.get("/", async (req, res, next) => {
   }
 
   try {
-    const leds = await service.findCompatibleLeds({
+    const positions = await service.findCompatibleLeds({
       make,
       model,
       year: Number(year),
     });
-    res.json({ leds });
+    res.json({ positions });
   } catch (error) {
     if (error instanceof VehicleNotFoundError) {
       res.status(404).json({ error: error.message });

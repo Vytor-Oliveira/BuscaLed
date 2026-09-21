@@ -34,15 +34,10 @@ export interface UserRepository {
   update(id: string, patch: UpdateUserInput): Promise<UserRecord>;
 }
 
-/**
- * Envio de e-mail transacional. M2 só tem a implementação ConsoleEmailSender
- * (loga o link no terminal) — o NotifModule de verdade (fila Bull/Redis +
- * SendGrid) é escopo do M4 da RFC. Trocar a implementação não deve exigir
- * mudanças no AuthService, só na injeção de dependência.
- */
-export interface EmailSender {
-  sendConfirmationEmail(email: string, token: string): Promise<void>;
-}
+// EmailSender agora mora em services/notification/types.ts (usado também
+// pelo StockModule, M3) — reexportado aqui pra não quebrar quem já importa
+// daqui.
+export type { EmailSender } from "../notification/types";
 
 export interface RegisterInput {
   name: string;

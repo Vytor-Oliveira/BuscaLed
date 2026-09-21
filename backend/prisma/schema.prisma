@@ -13,11 +13,22 @@ enum UserRole {
   ADMIN
 }
 
-enum HeadlightPosition {
-  BAIXO
-  ALTO
-  MILHA
-  PISCA
+// 13 posições de luz do veículo, mapeando 1:1 as colunas da planilha real
+// de compatibilidade da Shocklight (não é só "farol" — inclui pisca, freio,
+// ré, teto e placa também).
+enum LightingPosition {
+  FAROL_BAIXO
+  FAROL_ALTO
+  NEBLINA
+  LANTERNA_DIANTEIRA
+  PISCA_DIANTEIRO
+  PISCA_LATERAL
+  LANTERNA_TRASEIRA
+  PISCA_TRASEIRO
+  LUZ_FREIO
+  RE
+  TETO
+  PLACA
   DRL
 }
 
@@ -48,15 +59,31 @@ model User {
 // nunca persistido — Privacy by Design. Apenas os dados derivados abaixo,
 // necessários para a compatibilidade e o ticket, são gravados.
 model VehicleModel {
-  id           String   @id @default(uuid())
-  make         String
-  model        String
-  yearStart    Int
-  yearEnd      Int
+  id        String @id @default(uuid())
+  make      String
+  model     String
+  yearStart Int
+  yearEnd   Int
 
-  compatibilities LedCompatibility[]
+  fittings VehicleFitting[]
 
   @@unique([make, model, yearStart, yearEnd])
+}
+
+// Veículo → tipo de soquete por posição (dado importado da planilha da
+// Shocklight, M3). Um veículo pode ter mais de um soquete válido na mesma
+// posição (células compostas na planilha, ex: "H1 / HB3"), por isso o
+// socketCode entra na chave única, não só a posição.
+model VehicleFitting {
+  id             String           @id @default(uuid())
+  vehicleModelId String
+  position       LightingPosition
+  socketCode     String
+
+  vehicleModel VehicleModel @relation(fields: [vehicleModelId], references: [id])
+
+  @@unique([vehicleModelId, position, socketCode])
+  @@index([socketCode])
 }
 
 // Garagem Virtual (RF03) — veículos salvos pelo próprio usuário. A placa
@@ -77,27 +104,17 @@ model GarageVehicle {
 }
 
 model LedModel {
-  id          String   @id @default(uuid())
-  sku         String   @unique
+  id          String  @id @default(uuid())
+  sku         String  @unique
   name        String
   description String?
-  stockQty    Int      @default(0)
-  stockMin    Int      @default(5)
+  socketCode  String
+  stockQty    Int     @default(0)
+  stockMin    Int     @default(5)
 
-  compatibilities LedCompatibility[]
   reservationItems ReservationItem[]
-}
 
-model LedCompatibility {
-  id             String            @id @default(uuid())
-  vehicleModelId String
-  ledModelId     String
-  position       HeadlightPosition
-
-  vehicleModel VehicleModel @relation(fields: [vehicleModelId], references: [id])
-  ledModel     LedModel     @relation(fields: [ledModelId], references: [id])
-
-  @@unique([vehicleModelId, ledModelId, position])
+  @@index([socketCode])
 }
 
 model Reservation {
@@ -114,7 +131,7 @@ model ReservationItem {
   id            String @id @default(uuid())
   reservationId String
   ledModelId    String
-  position      HeadlightPosition
+  position      LightingPosition
   quantity      Int    @default(1)
 
   reservation Reservation @relation(fields: [reservationId], references: [id])

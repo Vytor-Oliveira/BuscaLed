@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "../db/prisma";
 import { PrismaUserRepository } from "../repositories/user.repository";
 import { AuthService } from "../services/auth/auth.service";
-import { ConsoleEmailSender } from "../services/auth/console-email-sender";
+import { ConsoleEmailSender } from "../services/notification/console-email-sender";
 import { AuthTokens } from "../services/auth/types";
 import {
   EmailAlreadyRegisteredError,

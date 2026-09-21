@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   CompatibilityRepository,
   CompatibleLed,
+  VehicleFittingRecord,
   VehicleInfo,
 } from "../services/compatibility/types";
 
@@ -20,18 +21,29 @@ export class PrismaCompatibilityRepository implements CompatibilityRepository {
     });
   }
 
-  async findCompatibleLeds(vehicleModelId: string): Promise<CompatibleLed[]> {
-    const compatibilities = await this.prisma.ledCompatibility.findMany({
+  async findFittings(vehicleModelId: string): Promise<VehicleFittingRecord[]> {
+    const fittings = await this.prisma.vehicleFitting.findMany({
       where: { vehicleModelId },
-      include: { ledModel: true },
+      select: { position: true, socketCode: true },
     });
 
-    return compatibilities.map((compatibility) => ({
-      ledModelId: compatibility.ledModel.id,
-      sku: compatibility.ledModel.sku,
-      name: compatibility.ledModel.name,
-      position: compatibility.position,
-      inStock: compatibility.ledModel.stockQty > 0,
+    return fittings.map((fitting) => ({
+      position: fitting.position as VehicleFittingRecord["position"],
+      socketCode: fitting.socketCode,
+    }));
+  }
+
+  async findLedModelsBySocketCodes(socketCodes: string[]): Promise<CompatibleLed[]> {
+    const models = await this.prisma.ledModel.findMany({
+      where: { socketCode: { in: socketCodes } },
+    });
+
+    return models.map((model) => ({
+      ledModelId: model.id,
+      sku: model.sku,
+      name: model.name,
+      socketCode: model.socketCode,
+      inStock: model.stockQty > 0,
     }));
   }
 }

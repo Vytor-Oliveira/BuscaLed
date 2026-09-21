@@ -1,5 +1,7 @@
-import { LedModel, PrismaClient } from "@prisma/client";
+import { LedModel, Prisma, PrismaClient } from "@prisma/client";
 import { InsufficientStockError, LedModelNotFoundError, StockLevel, StockRepository } from "../services/stock/types";
+
+const PRISMA_RECORD_NOT_FOUND_ERROR_CODE = "P2025";
 
 function toStockLevel(model: LedModel): StockLevel {
   return {
@@ -27,8 +29,17 @@ export class PrismaStockRepository implements StockRepository {
         data: { stockQty: { increment: quantity } },
       });
       return toStockLevel(updated);
-    } catch {
-      throw new LedModelNotFoundError(ledModelId);
+    } catch (error) {
+      // Só "sem linha correspondente" vira LedModelNotFoundError — qualquer
+      // outro erro (conexão caída, timeout, etc.) sobe como está, em vez de
+      // virar um 404 enganoso escondendo um problema de infraestrutura.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === PRISMA_RECORD_NOT_FOUND_ERROR_CODE
+      ) {
+        throw new LedModelNotFoundError(ledModelId);
+      }
+      throw error;
     }
   }
 
@@ -39,7 +50,11 @@ export class PrismaStockRepository implements StockRepository {
     // a escrita de OUTRA chamada, não a desta (o que afetaria incorretamente
     // a decisão de alerta de estoque mínimo em StockService). Usa UPDATE ...
     // RETURNING via SQL bruto pra ler exatamente a linha que esta chamada
-    // produziu, na mesma operação atômica.
+    // produziu, na mesma operação atômica. O `"stockQty" - ${quantity}`
+    // abaixo é o equivalente ao `{ decrement: quantity }` do Prisma — não dá
+    // pra usar o helper de alto nível aqui porque nem `update` (não aceita
+    // WHERE além da chave única) nem `updateMany` (não devolve RETURNING)
+    // sozinhos combinam a guarda atômica com a leitura da linha resultante.
     const rows = await this.prisma.$queryRaw<LedModel[]>`
       UPDATE "LedModel"
       SET "stockQty" = "stockQty" - ${quantity}

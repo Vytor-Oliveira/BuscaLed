@@ -15,9 +15,6 @@ export const catalogRouter = Router();
 
 const catalogService = new CatalogService(new PrismaCatalogRepository(prisma));
 
-// Deriva do enum gerado pelo Prisma (fonte única de verdade é schema.prisma)
-// em vez de duplicar a lista de posições manualmente — evita as 3 listas
-// (schema, aqui, scripts/compat-matrix-parsers.ts) saírem de sincronia.
 const createLedModelSchema = z.object({
   sku: z.string().min(1),
   name: z.string().min(1),
@@ -27,6 +24,9 @@ const createLedModelSchema = z.object({
   stockMin: z.number().int().nonnegative().optional(),
 });
 
+// Deriva do enum gerado pelo Prisma (fonte única de verdade é schema.prisma)
+// em vez de duplicar a lista de posições manualmente — evita as 3 listas
+// (schema, aqui, scripts/compat-matrix-parsers.ts) saírem de sincronia.
 const createFittingSchema = z.object({
   vehicleModelId: z.string().min(1),
   position: z.nativeEnum(LightingPosition),

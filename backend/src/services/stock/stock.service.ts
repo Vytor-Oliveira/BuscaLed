@@ -26,13 +26,23 @@ export class StockService {
     this.assertValidQuantity(quantity);
     const updated = await this.repository.decrementStock(ledModelId, quantity);
 
+    // O decremento acima já está commitado no banco — é a operação crítica.
+    // O alerta é só um aviso: se o envio falhar (rede, SMTP fora do ar), não
+    // pode derrubar decrementStock, senão quem chamou (TicketModule, RN12)
+    // acha que a operação toda falhou e tenta de novo, decrementando o
+    // estoque uma segunda vez pro mesmo ticket.
     if (updated.belowMinimum) {
-      await this.emailSender.sendLowStockAlert(this.alertRecipient, {
-        sku: updated.sku,
-        name: updated.name,
-        stockQty: updated.stockQty,
-        stockMin: updated.stockMin,
-      });
+      try {
+        await this.emailSender.sendLowStockAlert(this.alertRecipient, {
+          sku: updated.sku,
+          name: updated.name,
+          stockQty: updated.stockQty,
+          stockMin: updated.stockMin,
+        });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(`Falha ao enviar alerta de estoque mínimo para ${updated.sku}:`, error);
+      }
     }
 
     return updated;

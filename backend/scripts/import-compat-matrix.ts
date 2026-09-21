@@ -68,12 +68,26 @@ export async function importCompatMatrix(rows: RawRow[]): Promise<ImportSummary>
 
     const fittings = fittingsByVehicleKey.get(key) ?? [];
     row.posicoes.forEach((cell, index) => {
+      const position = POSITION_COLUMNS[index];
+      if (!position) {
+        // Mais colunas de posição na linha do que POSITION_COLUMNS conhece —
+        // a planilha do parceiro provavelmente ganhou uma coluna nova. Falha
+        // aqui, no ponto exato da causa, em vez de inserir position:undefined
+        // silenciosamente e só descobrir no erro de constraint do insert.
+        throw new Error(
+          `Linha com coluna de posição no índice ${index} sem posição conhecida ` +
+            `(POSITION_COLUMNS só tem ${POSITION_COLUMNS.length}). ` +
+            "A planilha do parceiro provavelmente ganhou uma coluna nova — " +
+            "atualize POSITION_COLUMNS em compat-matrix-parsers.ts antes de reimportar."
+        );
+      }
+
       const socketCodes = parsePositionCell(cell);
       if (socketCodes.length === 0) {
         skippedCells += 1;
       }
       for (const socketCode of socketCodes) {
-        fittings.push({ position: POSITION_COLUMNS[index], socketCode });
+        fittings.push({ position, socketCode });
       }
     });
     fittingsByVehicleKey.set(key, fittings);
@@ -87,18 +101,27 @@ export async function importCompatMatrix(rows: RawRow[]): Promise<ImportSummary>
     });
   }
 
-  const allVehicles = await prisma.vehicleModel.findMany();
+  // Busca só os veículos desta execução (por chave exata), em vez da tabela
+  // inteira — o script é re-executável (skipDuplicates acima), então rodar
+  // de novo com a tabela já grande não deveria escalar com o total do banco,
+  // só com o tamanho do arquivo importado.
   const idByKey = new Map<string, string>();
-  for (const vehicle of allVehicles) {
-    idByKey.set(
-      vehicleKeyToString({
-        make: vehicle.make,
-        model: vehicle.model,
-        yearStart: vehicle.yearStart,
-        yearEnd: vehicle.yearEnd,
-      }),
-      vehicle.id
-    );
+  for (let i = 0; i < vehicleValues.length; i += BATCH_SIZE) {
+    const batch = vehicleValues.slice(i, i + BATCH_SIZE);
+    const found = await prisma.vehicleModel.findMany({
+      where: {
+        OR: batch.map((v) => ({
+          make: v.make,
+          model: v.model,
+          yearStart: v.yearStart,
+          yearEnd: v.yearEnd,
+        })),
+      },
+      select: { id: true, make: true, model: true, yearStart: true, yearEnd: true },
+    });
+    for (const vehicle of found) {
+      idByKey.set(vehicleKeyToString(vehicle), vehicle.id);
+    }
   }
 
   const fittingRows: Prisma.VehicleFittingCreateManyInput[] = [];

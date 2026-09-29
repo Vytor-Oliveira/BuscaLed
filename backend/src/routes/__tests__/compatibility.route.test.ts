@@ -2,6 +2,7 @@ import "dotenv/config";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
+import { closeNotificationQueue } from "../../queue/notification.bootstrap";
 
 const app = createApp();
 
@@ -25,6 +26,7 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
       await prisma.ledModel.deleteMany({ where: { id: { in: createdLedModelIds } } });
     }
     await prisma.$disconnect();
+    await closeNotificationQueue();
   });
 
   it("retorna 400 quando faltam parâmetros", async () => {

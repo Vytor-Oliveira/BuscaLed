@@ -2,6 +2,7 @@ import "dotenv/config";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
+import { closeNotificationQueue } from "../../queue/notification.bootstrap";
 
 const app = createApp();
 
@@ -30,6 +31,7 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
       await prisma.user.deleteMany({ where: { email: { in: createdEmails } } });
     }
     await prisma.$disconnect();
+    await closeNotificationQueue();
   });
 
   it("cadastra, bloqueia login antes de confirmar, confirma e loga com sucesso", async () => {

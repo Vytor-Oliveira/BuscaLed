@@ -1,20 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { prisma } from "../db/prisma";
 import { requireAuth, requireRole } from "../middleware/auth.middleware";
-import { PrismaStockRepository } from "../repositories/stock.repository";
-import { ConsoleEmailSender } from "../services/notification/console-email-sender";
-import { StockService } from "../services/stock/stock.service";
+import { stockService } from "../services/stock/stock.bootstrap";
 import { InsufficientStockError, InvalidQuantityError, LedModelNotFoundError } from "../services/stock/types";
 
 export const stockRouter = Router();
-
-const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? "admin@buscaled.local";
-const stockService = new StockService(
-  new PrismaStockRepository(prisma),
-  new ConsoleEmailSender(),
-  ADMIN_ALERT_EMAIL
-);
 
 const restockSchema = z.object({
   quantity: z.number().int().positive("A quantidade precisa ser um inteiro positivo."),

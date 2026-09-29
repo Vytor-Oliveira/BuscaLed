@@ -44,17 +44,9 @@ export class PrismaStockRepository implements StockRepository {
   }
 
   async decrementStock(ledModelId: string, quantity: number): Promise<StockLevel> {
-    // Corrida: um updateMany guarnecido garante atomicamente que o estoque
-    // não fica negativo, mas uma leitura separada depois não é atômica com
-    // a escrita — sob decrementos concorrentes, o valor lido pode já refletir
-    // a escrita de OUTRA chamada, não a desta (o que afetaria incorretamente
-    // a decisão de alerta de estoque mínimo em StockService). Usa UPDATE ...
-    // RETURNING via SQL bruto pra ler exatamente a linha que esta chamada
-    // produziu, na mesma operação atômica. O `"stockQty" - ${quantity}`
-    // abaixo é o equivalente ao `{ decrement: quantity }` do Prisma — não dá
-    // pra usar o helper de alto nível aqui porque nem `update` (não aceita
-    // WHERE além da chave única) nem `updateMany` (não devolve RETURNING)
-    // sozinhos combinam a guarda atômica com a leitura da linha resultante.
+    // UPDATE...RETURNING via SQL bruto: nem `update` (sem WHERE extra) nem
+    // `updateMany` (sem RETURNING) sozinhos dão a guarda atômica (estoque
+    // não fica negativo) + a leitura da linha resultante na mesma operação.
     const rows = await this.prisma.$queryRaw<LedModel[]>`
       UPDATE "LedModel"
       SET "stockQty" = "stockQty" - ${quantity}

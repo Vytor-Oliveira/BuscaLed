@@ -2,6 +2,7 @@ import "dotenv/config";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
+import { closeNotificationQueue } from "../../queue/notification.bootstrap";
 import { PrismaStockRepository } from "../../repositories/stock.repository";
 import { StockService } from "../../services/stock/stock.service";
 import { InsufficientStockError } from "../../services/stock/types";
@@ -30,6 +31,7 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
       await prisma.ledModel.deleteMany({ where: { id: { in: createdLedModelIds } } });
     }
     await prisma.$disconnect();
+    await closeNotificationQueue();
   });
 
   it("bloqueia acesso sem autenticação", async () => {
@@ -91,7 +93,13 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
 
     const service = new StockService(
       new PrismaStockRepository(prisma),
-      { sendConfirmationEmail: jest.fn(), sendLowStockAlert: jest.fn() },
+      {
+        sendConfirmationEmail: jest.fn(),
+        sendLowStockAlert: jest.fn(),
+        sendNewTicketNotification: jest.fn(),
+        sendTicketEditedNotification: jest.fn(),
+        sendTicketCancelledNotification: jest.fn(),
+      },
       "admin@teste.local"
     );
 
@@ -107,7 +115,13 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
     const sendLowStockAlert = jest.fn().mockResolvedValue(undefined);
     const service = new StockService(
       new PrismaStockRepository(prisma),
-      { sendConfirmationEmail: jest.fn(), sendLowStockAlert },
+      {
+        sendConfirmationEmail: jest.fn(),
+        sendLowStockAlert,
+        sendNewTicketNotification: jest.fn(),
+        sendTicketEditedNotification: jest.fn(),
+        sendTicketCancelledNotification: jest.fn(),
+      },
       "admin@teste.local"
     );
 

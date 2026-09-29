@@ -5,14 +5,26 @@ export interface StockAlertInfo {
   stockMin: number;
 }
 
-/**
- * Envio de e-mail transacional. M2/M3 só têm a implementação
- * ConsoleEmailSender (loga no terminal) — o NotifModule de verdade (fila
- * Bull/Redis + SendGrid) é escopo do M4 da RFC. Trocar a implementação não
- * deve exigir mudanças em quem consome esta interface (AuthService,
- * StockService), só na injeção de dependência.
- */
+export interface NewTicketInfo {
+  ticketId: string;
+  itemCount: number;
+}
+
+export interface TicketEditedInfo {
+  ticketId: string;
+  itemId: string;
+  previousProductName: string;
+  newProductName: string;
+}
+
+export interface TicketCancelledInfo {
+  ticketId: string;
+}
+
 export interface EmailSender {
   sendConfirmationEmail(email: string, token: string): Promise<void>;
   sendLowStockAlert(to: string, info: StockAlertInfo): Promise<void>;
+  sendNewTicketNotification(to: string, info: NewTicketInfo): Promise<void>;
+  sendTicketEditedNotification(to: string, info: TicketEditedInfo): Promise<void>;
+  sendTicketCancelledNotification(to: string, info: TicketCancelledInfo): Promise<void>;
 }

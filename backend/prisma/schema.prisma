@@ -112,7 +112,8 @@ model LedModel {
   stockQty    Int     @default(0)
   stockMin    Int     @default(5)
 
-  reservationItems ReservationItem[]
+  reservationItems         ReservationItem[] @relation("CurrentLedModel")
+  originalReservationItems ReservationItem[] @relation("OriginalLedModel")
 
   @@index([socketCode])
 }
@@ -122,18 +123,25 @@ model Reservation {
   userId    String
   status    ReservationStatus @default(PENDENTE)
   createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 
-  user  User               @relation(fields: [userId], references: [id])
+  user  User              @relation(fields: [userId], references: [id])
   items ReservationItem[]
+
+  @@index([userId])
+  @@index([status])
 }
 
+// originalLedModelId fica nulo até a primeira edição do representante (RN11).
 model ReservationItem {
-  id            String @id @default(uuid())
-  reservationId String
-  ledModelId    String
-  position      LightingPosition
-  quantity      Int    @default(1)
+  id                 String           @id @default(uuid())
+  reservationId      String
+  ledModelId         String
+  originalLedModelId String?
+  position           LightingPosition
+  quantity           Int              @default(1)
 
-  reservation Reservation @relation(fields: [reservationId], references: [id])
-  ledModel    LedModel    @relation(fields: [ledModelId], references: [id])
+  reservation      Reservation @relation(fields: [reservationId], references: [id])
+  ledModel         LedModel    @relation("CurrentLedModel", fields: [ledModelId], references: [id])
+  originalLedModel LedModel?   @relation("OriginalLedModel", fields: [originalLedModelId], references: [id])
 }

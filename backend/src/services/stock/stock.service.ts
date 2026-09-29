@@ -18,19 +18,13 @@ export class StockService {
     return this.repository.incrementStock(ledModelId, quantity);
   }
 
-  // RN12 — chamado pelo TicketModule (M4) quando um ticket é concluído.
-  // Não exposto em nenhuma rota nesta milestone: criar uma rota pública
-  // pra isso deixaria o estoque ser decrementado fora do fluxo de ticket,
-  // o que violaria a regra.
+  // RN12 — chamado pelo TicketModule ao concluir um ticket, sem rota pública
+  // própria (decrementar fora do fluxo de ticket violaria a regra).
   async decrementStock(ledModelId: string, quantity: number): Promise<StockLevel> {
     this.assertValidQuantity(quantity);
     const updated = await this.repository.decrementStock(ledModelId, quantity);
 
-    // O decremento acima já está commitado no banco — é a operação crítica.
-    // O alerta é só um aviso: se o envio falhar (rede, SMTP fora do ar), não
-    // pode derrubar decrementStock, senão quem chamou (TicketModule, RN12)
-    // acha que a operação toda falhou e tenta de novo, decrementando o
-    // estoque uma segunda vez pro mesmo ticket.
+    // Decremento já commitado — falha no alerta não pode derrubar esta chamada.
     if (updated.belowMinimum) {
       try {
         await this.emailSender.sendLowStockAlert(this.alertRecipient, {

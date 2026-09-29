@@ -14,9 +14,17 @@ export type NotificationJob =
   | { type: "ticketEdited"; to: string; info: TicketEditedInfo }
   | { type: "ticketCancelled"; to: string; info: TicketCancelledInfo };
 
-export function createNotificationQueue(): Queue.Queue<NotificationJob> {
+export const NOTIFICATION_QUEUE_NAME = "notifications";
+
+// queueName customizável: filas Bull com o mesmo nome no mesmo Redis viram
+// consumidores concorrentes entre si, mesmo em processos/workers diferentes
+// (ex: testes rodando em paralelo). Um nome próprio isola a fila de teste do
+// singleton de produção, que já roda em todo arquivo que sobe createApp().
+export function createNotificationQueue(
+  queueName: string = NOTIFICATION_QUEUE_NAME
+): Queue.Queue<NotificationJob> {
   const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
-  const queue = new Queue<NotificationJob>("notifications", redisUrl);
+  const queue = new Queue<NotificationJob>(queueName, redisUrl);
 
   // Sem listener, um erro de conexão com o Redis derruba o processo inteiro.
   queue.on("error", (error) => {

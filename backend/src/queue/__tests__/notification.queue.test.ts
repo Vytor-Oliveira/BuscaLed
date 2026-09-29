@@ -4,7 +4,12 @@ import { createNotificationQueue, registerNotificationProcessor } from "../notif
 
 // Fila Bull real contra o Redis real — só o sender final é um spy (mesmo
 // corte já aceito em stock.route.test.ts: o envio via Gmail SMTP em si não
-// dá pra automatizar sem credenciais reais).
+// dá pra automatizar sem credenciais reais). Nome de fila próprio, único por
+// execução: outros arquivos de teste rodam em paralelo (workers do Jest) e
+// já têm o singleton de produção (fila "notifications") ativo — usar o mesmo
+// nome faria os jobs deste teste serem roubados por aquele processor.
+const TEST_QUEUE_NAME = `notifications-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 describe("Fila de notificações (integração real — Bull + Redis, sem mocks na fila)", () => {
   let queue: ReturnType<typeof createNotificationQueue>;
 
@@ -23,7 +28,7 @@ describe("Fila de notificações (integração real — Bull + Redis, sem mocks 
   }
 
   it("processa um job de novo ticket chamando o método certo do sender real", async () => {
-    queue = createNotificationQueue();
+    queue = createNotificationQueue(TEST_QUEUE_NAME);
     const sender = createSpySender();
     registerNotificationProcessor(queue, sender);
 
@@ -41,7 +46,7 @@ describe("Fila de notificações (integração real — Bull + Redis, sem mocks 
   });
 
   it("processa um job de estoque mínimo, edição e cancelamento cada um pro método certo", async () => {
-    queue = createNotificationQueue();
+    queue = createNotificationQueue(TEST_QUEUE_NAME);
     const sender = createSpySender();
     registerNotificationProcessor(queue, sender);
 

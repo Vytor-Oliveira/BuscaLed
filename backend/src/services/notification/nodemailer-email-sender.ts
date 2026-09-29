@@ -23,7 +23,10 @@ export class NodemailerEmailSender implements EmailSender {
   }
 
   async sendConfirmationEmail(email: string, token: string): Promise<void> {
-    const baseUrl = process.env.APP_BASE_URL ?? "http://localhost:3000";
+    const baseUrl = process.env.APP_BASE_URL;
+    if (!baseUrl) {
+      throw new Error("APP_BASE_URL não configurado — necessário para montar o link de confirmação.");
+    }
     const link = `${baseUrl}/auth/confirm?token=${token}`;
     await this.send(email, "Confirme seu e-mail — BuscaLED", `Clique para confirmar: ${link}`);
   }

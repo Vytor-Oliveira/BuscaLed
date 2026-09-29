@@ -2,12 +2,8 @@ import "dotenv/config";
 import { EmailSender } from "../../services/notification/types";
 import { createNotificationQueue, registerNotificationProcessor } from "../notification.queue";
 
-// Fila Bull real contra o Redis real — só o sender final é um spy (mesmo
-// corte já aceito em stock.route.test.ts: o envio via Gmail SMTP em si não
-// dá pra automatizar sem credenciais reais). Nome de fila próprio, único por
-// execução: outros arquivos de teste rodam em paralelo (workers do Jest) e
-// já têm o singleton de produção (fila "notifications") ativo — usar o mesmo
-// nome faria os jobs deste teste serem roubados por aquele processor.
+// Nome próprio: evita competir pelos mesmos jobs com o singleton de
+// produção, que já roda em paralelo em outros arquivos de teste.
 const TEST_QUEUE_NAME = `notifications-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 describe("Fila de notificações (integração real — Bull + Redis, sem mocks na fila)", () => {

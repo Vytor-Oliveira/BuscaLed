@@ -32,8 +32,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      # A partir do M4, o app usa uma fila Bull real (notificações
-      # assíncronas) — os testes precisam de um Redis de verdade também.
       redis:
         image: redis:7-alpine
         ports:

@@ -314,4 +314,91 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     const item = await prisma.reservationItem.findUniqueOrThrow({ where: { id: itemId } });
     expect(item.ledModelId).toBe(led.id);
   });
+  it("rejeita filtro de status inválido na fila do representante", async () => {
+    const res = await request(app).get("/tickets?status=XPTO").set("Cookie", rep.cookies);
+    expect(res.status).toBe(400);
+  });
+
+  it("representante consulta um ticket pelo id, e recebe 404 se não existir", async () => {
+    const led = await createLedModel("TESTE-GET");
+    createdLedModelIds.push(led.id);
+    const criado = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }] });
+    createdTicketIds.push(criado.body.ticket.id);
+
+    const ok = await request(app).get(`/tickets/${criado.body.ticket.id}`).set("Cookie", rep.cookies);
+    expect(ok.status).toBe(200);
+    expect(ok.body.ticket.id).toBe(criado.body.ticket.id);
+
+    const inexistente = await request(app)
+      .get("/tickets/00000000-0000-0000-0000-000000000000")
+      .set("Cookie", rep.cookies);
+    expect(inexistente.status).toBe(404);
+  });
+
+  it("cliente não pode editar item nem concluir ticket", async () => {
+    const led = await createLedModel("TESTE-PERM");
+    createdLedModelIds.push(led.id);
+    const criado = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }] });
+    const ticketId = criado.body.ticket.id;
+    const itemId = criado.body.ticket.items[0].id;
+    createdTicketIds.push(ticketId);
+
+    const edicao = await request(app)
+      .patch(`/tickets/${ticketId}/items/${itemId}`)
+      .set("Cookie", client.cookies)
+      .send({ ledModelId: led.id });
+    expect(edicao.status).toBe(403);
+
+    const conclusao = await request(app)
+      .patch(`/tickets/${ticketId}/complete`)
+      .set("Cookie", client.cookies);
+    expect(conclusao.status).toBe(403);
+  });
+
+  it("rejeita edição sem ledModelId, com item de outro ticket ou com produto inexistente", async () => {
+    const led = await createLedModel("TESTE-VAL");
+    createdLedModelIds.push(led.id);
+
+    const primeiro = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }] });
+    const segundo = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_ALTO", quantity: 1 }] });
+    createdTicketIds.push(primeiro.body.ticket.id, segundo.body.ticket.id);
+
+    const semCorpo = await request(app)
+      .patch(`/tickets/${primeiro.body.ticket.id}/items/${primeiro.body.ticket.items[0].id}`)
+      .set("Cookie", rep.cookies)
+      .send({});
+    expect(semCorpo.status).toBe(400);
+
+    // item existe, mas pertence ao outro ticket
+    const itemDeOutro = await request(app)
+      .patch(`/tickets/${primeiro.body.ticket.id}/items/${segundo.body.ticket.items[0].id}`)
+      .set("Cookie", rep.cookies)
+      .send({ ledModelId: led.id });
+    expect(itemDeOutro.status).toBe(404);
+
+    const produtoInexistente = await request(app)
+      .patch(`/tickets/${primeiro.body.ticket.id}/items/${primeiro.body.ticket.items[0].id}`)
+      .set("Cookie", rep.cookies)
+      .send({ ledModelId: "00000000-0000-0000-0000-000000000000" });
+    expect(produtoInexistente.status).toBe(404);
+  });
+
+  it("retorna 404 ao confirmar um ticket que não existe", async () => {
+    const res = await request(app)
+      .patch("/tickets/00000000-0000-0000-0000-000000000000/confirm")
+      .set("Cookie", rep.cookies);
+    expect(res.status).toBe(404);
+  });
 });

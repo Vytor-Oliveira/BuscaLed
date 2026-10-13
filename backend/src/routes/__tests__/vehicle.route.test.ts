@@ -2,6 +2,7 @@ import "dotenv/config";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
+import { closeNotificationQueue } from "../../queue/notification.bootstrap";
 
 const app = createApp();
 
@@ -38,6 +39,7 @@ describe("Vehicle routes / Garagem Virtual (integração real — Postgres, sem 
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
     await prisma.$disconnect();
+    await closeNotificationQueue();
   });
 
   it("bloqueia acesso sem autenticação", async () => {

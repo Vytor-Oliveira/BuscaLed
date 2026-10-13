@@ -2,6 +2,7 @@ import "dotenv/config";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
+import { closeNotificationQueue } from "../../queue/notification.bootstrap";
 
 const app = createApp();
 
@@ -32,6 +33,7 @@ describe("Catalog routes (integração real — Postgres, sem mocks)", () => {
       await prisma.vehicleModel.deleteMany({ where: { id: { in: createdVehicleModelIds } } });
     }
     await prisma.$disconnect();
+    await closeNotificationQueue();
   });
 
   it("bloqueia acesso sem autenticação", async () => {

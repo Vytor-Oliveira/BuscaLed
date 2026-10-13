@@ -32,8 +32,18 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://buscaled:buscaled_dev@localhost:5432/buscaled
+      REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-only-access-secret-nao-usar-em-producao
       JWT_REFRESH_SECRET: ci-only-refresh-secret-nao-usar-em-producao
       APP_BASE_URL: http://localhost:3000

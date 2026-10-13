@@ -3,6 +3,7 @@ import {
   CreateTicketItemInput,
   InvalidStatusTransitionError,
   LedModelSummary,
+  OPEN_STATUSES,
   TicketItemDetail,
   TicketNotFoundError,
   TicketRecord,
@@ -131,18 +132,26 @@ export class PrismaTicketRepository implements TicketRepository {
   }
 
   async updateItemProduct(
+    ticketId: string,
     itemId: string,
     newLedModelId: string,
     originalLedModelId: string | null
   ): Promise<TicketRecord> {
-    const item = await this.prisma.reservationItem.update({
-      where: { id: itemId },
+    // O status entra no where (mesma guarda de updateStatus): sem isso, um
+    // "concluir" concorrente poderia baixar o estoque do produto antigo e esta
+    // escrita entrar depois, deixando o item apontando pro produto errado.
+    const result = await this.prisma.reservationItem.updateMany({
+      where: { id: itemId, reservation: { status: { in: OPEN_STATUSES } } },
       data: { ledModelId: newLedModelId, originalLedModelId },
     });
 
-    const updated = await this.findById(item.reservationId);
+    if (result.count === 0) {
+      throw new InvalidStatusTransitionError("O ticket não está mais aberto para edição.");
+    }
+
+    const updated = await this.findById(ticketId);
     if (!updated) {
-      throw new TicketNotFoundError(item.reservationId);
+      throw new TicketNotFoundError(ticketId);
     }
     return updated;
   }

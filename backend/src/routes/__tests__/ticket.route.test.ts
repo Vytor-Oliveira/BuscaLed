@@ -3,6 +3,8 @@ import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
 import { closeNotificationQueue } from "../../queue/notification.bootstrap";
+import { PrismaTicketRepository } from "../../repositories/ticket.repository";
+import { InvalidStatusTransitionError } from "../../services/ticket/types";
 
 const app = createApp();
 
@@ -284,5 +286,32 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
 
     const lateCancel = await request(app).patch(`/tickets/${concludedId}/cancel`).set("Cookie", client.cookies);
     expect(lateCancel.status).toBe(409);
+  });
+  // A rota já barra a edição de ticket fechado; este teste ataca a escrita
+  // direto no repositório, que é o que acontece quando um "concluir"
+  // concorrente fecha o ticket depois da checagem do service e antes do UPDATE.
+  it("repositório recusa editar item de ticket já concluído, mesmo chamado direto", async () => {
+    const led = await createLedModel("TESTE-GUARDA");
+    const substituto = await createLedModel("TESTE-GUARDA");
+    createdLedModelIds.push(led.id, substituto.id);
+
+    const criado = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }] });
+    const ticketId = criado.body.ticket.id;
+    const itemId = criado.body.ticket.items[0].id;
+    createdTicketIds.push(ticketId);
+
+    await request(app).patch(`/tickets/${ticketId}/confirm`).set("Cookie", rep.cookies);
+    await request(app).patch(`/tickets/${ticketId}/complete`).set("Cookie", rep.cookies);
+
+    const repository = new PrismaTicketRepository(prisma);
+    await expect(
+      repository.updateItemProduct(ticketId, itemId, substituto.id, led.id)
+    ).rejects.toBeInstanceOf(InvalidStatusTransitionError);
+
+    const item = await prisma.reservationItem.findUniqueOrThrow({ where: { id: itemId } });
+    expect(item.ledModelId).toBe(led.id);
   });
 });

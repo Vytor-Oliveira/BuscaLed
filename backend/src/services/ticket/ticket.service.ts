@@ -7,15 +7,13 @@ import {
   IncompatibleSocketError,
   InvalidStatusTransitionError,
   LedModelNotFoundForTicketError,
+  OPEN_STATUSES,
   TicketItemNotFoundError,
   TicketNotFoundError,
   TicketOwnershipError,
   TicketRecord,
   TicketRepository,
 } from "./types";
-
-// RN14 — cancelamento e edição só valem com o ticket ainda aberto.
-const OPEN_STATUSES: ReservationStatus[] = ["PENDENTE", "CONFIRMADO"];
 
 export class TicketService {
   constructor(
@@ -106,7 +104,12 @@ export class TicketService {
     const previousLedModel = await this.repository.findLedModel(item.ledModelId);
     const originalLedModelId = item.originalLedModelId ?? item.ledModelId;
 
-    const updated = await this.repository.updateItemProduct(itemId, newLedModelId, originalLedModelId);
+    const updated = await this.repository.updateItemProduct(
+      ticketId,
+      itemId,
+      newLedModelId,
+      originalLedModelId
+    );
 
     await this.notify(() =>
       this.emailSender.sendTicketEditedNotification(updated.userEmail, {
@@ -142,8 +145,18 @@ export class TicketService {
         decremented.push({ ledModelId: item.ledModelId, quantity: item.quantity });
       }
     } catch (error) {
+      // Cada reposição é isolada: uma falha aqui não pode impedir a reversão do
+      // status abaixo, senão o ticket fica CONCLUIDO com estoque pela metade.
       for (const rollback of decremented) {
-        await this.stockService.restock(rollback.ledModelId, rollback.quantity);
+        try {
+          await this.stockService.restock(rollback.ledModelId, rollback.quantity);
+        } catch (restockError) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `Falha ao repor ${rollback.quantity}x ${rollback.ledModelId} do ticket ${id}:`,
+            restockError
+          );
+        }
       }
       try {
         await this.repository.updateStatus(id, ["CONCLUIDO"], "CONFIRMADO");

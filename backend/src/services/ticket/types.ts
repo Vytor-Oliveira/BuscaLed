@@ -1,5 +1,8 @@
 import { LightingPosition, ReservationStatus } from "@prisma/client";
 
+// RN14 — status em que o ticket ainda aceita cancelamento e edição de item.
+export const OPEN_STATUSES: ReservationStatus[] = ["PENDENTE", "CONFIRMADO"];
+
 export interface TicketItemRecord {
   id: string;
   ledModelId: string;
@@ -53,7 +56,9 @@ export interface TicketRepository {
     to: ReservationStatus
   ): Promise<TicketRecord>;
   findItem(itemId: string): Promise<TicketItemDetail | null>;
+  // Atômica: só efetiva se o ticket ainda estiver em OPEN_STATUSES.
   updateItemProduct(
+    ticketId: string,
     itemId: string,
     newLedModelId: string,
     originalLedModelId: string | null

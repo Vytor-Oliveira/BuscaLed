@@ -43,6 +43,7 @@ Thumbs.db
 docs/roteiro-tecnico.md
 docs/cronograma-academico.md
 docs/guia-outro-computador.md
+docs/*.pdf
 
 # Prisma
 backend/prisma/*.db

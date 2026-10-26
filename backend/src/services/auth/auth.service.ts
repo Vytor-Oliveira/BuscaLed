@@ -13,6 +13,7 @@ import {
   InvalidOrExpiredTokenError,
   LoginInput,
   RegisterInput,
+  UserProfile,
   UserRepository,
 } from "./types";
 
@@ -161,6 +162,16 @@ export class AuthService {
     }
 
     return this.issueTokens(user.id, user.role);
+  }
+
+  // Usado pelo GET /auth/me: o cookie e httpOnly, entao o frontend nao tem
+  // outra forma de descobrir quem esta logado e com que papel.
+  async getProfile(userId: string): Promise<UserProfile | null> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      return null;
+    }
+    return { id: user.id, name: user.name, email: user.email, role: user.role };
   }
 
   private issueTokens(userId: string, role: UserRole): AuthTokens {

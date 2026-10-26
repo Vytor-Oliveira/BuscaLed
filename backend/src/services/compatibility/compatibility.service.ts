@@ -2,22 +2,30 @@ import {
   CompatibilityRepository,
   CompatibleLed,
   PositionCompatibility,
+  SearchHistoryRepository,
   VehicleInfo,
   VehicleNotFoundError,
 } from "./types";
 
 export class CompatibilityService {
-  constructor(private readonly repository: CompatibilityRepository) {}
+  constructor(
+    private readonly repository: CompatibilityRepository,
+    private readonly searchHistory?: SearchHistoryRepository
+  ) {}
 
   async findCompatibleLeds(vehicle: VehicleInfo): Promise<PositionCompatibility[]> {
     const vehicleModel = await this.repository.findVehicleModel(vehicle);
 
     if (!vehicleModel) {
+      // Registra antes de lançar: busca sem resultado é o dado que mostra
+      // lacuna na matriz, justamente o mais acionável pro parceiro.
+      await this.recordSearch(vehicle, 0);
       throw new VehicleNotFoundError(vehicle);
     }
 
     const fittings = await this.repository.findFittings(vehicleModel.id);
     if (fittings.length === 0) {
+      await this.recordSearch(vehicle, 0);
       return [];
     }
 
@@ -38,10 +46,26 @@ export class CompatibilityService {
       bySocketCodes.set(fitting.position, codes);
     }
 
+    await this.recordSearch(vehicle, ledModels.length);
+
     return [...bySocketCodes.entries()].map(([position, socketCodes]) => ({
       position: position as PositionCompatibility["position"],
       socketCodes: [...socketCodes],
       models: [...socketCodes].flatMap((code) => modelsBySocketCode.get(code) ?? []),
     }));
+  }
+
+  // Efeito secundário: falha de histórico não pode derrubar a consulta do
+  // usuário (mesmo tratamento que StockService dá ao alerta de estoque).
+  private async recordSearch(vehicle: VehicleInfo, resultCount: number): Promise<void> {
+    if (!this.searchHistory) {
+      return;
+    }
+    try {
+      await this.searchHistory.record(vehicle, resultCount);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Falha ao registrar histórico de busca:", error);
+    }
   }
 }

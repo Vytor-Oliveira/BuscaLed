@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { LedModel, Prisma, PrismaClient } from "@prisma/client";
 import {
   CatalogRepository,
   CreateFittingInput,
@@ -9,6 +9,17 @@ import {
 } from "../services/catalog/types";
 
 const PRISMA_UNIQUE_CONSTRAINT_ERROR_CODE = "P2002";
+
+function toLedModelRecord(model: LedModel): LedModelRecord {
+  return {
+    id: model.id,
+    sku: model.sku,
+    name: model.name,
+    socketCode: model.socketCode,
+    stockQty: model.stockQty,
+    stockMin: model.stockMin,
+  };
+}
 
 export class PrismaCatalogRepository implements CatalogRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -25,7 +36,7 @@ export class PrismaCatalogRepository implements CatalogRepository {
           stockMin: input.stockMin ?? 5,
         },
       });
-      return { id: model.id, sku: model.sku, name: model.name, socketCode: model.socketCode };
+      return toLedModelRecord(model);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -35,6 +46,11 @@ export class PrismaCatalogRepository implements CatalogRepository {
       }
       throw error;
     }
+  }
+
+  async listLedModels(): Promise<LedModelRecord[]> {
+    const models = await this.prisma.ledModel.findMany({ orderBy: { sku: "asc" } });
+    return models.map(toLedModelRecord);
   }
 
   async vehicleModelExists(vehicleModelId: string): Promise<boolean> {

@@ -35,6 +35,15 @@ const createFittingSchema = z.object({
 
 catalogRouter.use(requireAuth, requireRole("admin"));
 
+catalogRouter.get("/led-models", async (_req, res, next) => {
+  try {
+    const ledModels = await catalogService.listLedModels();
+    res.json({ ledModels });
+  } catch (error) {
+    next(error);
+  }
+});
+
 catalogRouter.post("/led-models", async (req, res, next) => {
   const parsed = createLedModelSchema.safeParse(req.body);
   if (!parsed.success) {

@@ -287,6 +287,70 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     const lateCancel = await request(app).patch(`/tickets/${concludedId}/cancel`).set("Cookie", client.cookies);
     expect(lateCancel.status).toBe(409);
   });
+  // RF12 — o representante gerencia o status, cancelamento incluso. A posse
+  // (RN14) restringe só o cliente.
+  it("deixa o representante cancelar pedido de outra pessoa", async () => {
+    const led = await createLedModel("TESTE-CANCEL-REP");
+    createdLedModelIds.push(led.id);
+
+    const criado = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }] });
+    const ticketId = criado.body.ticket.id;
+    createdTicketIds.push(ticketId);
+
+    const res = await request(app).patch(`/tickets/${ticketId}/cancel`).set("Cookie", rep.cookies);
+    expect(res.status).toBe(200);
+    expect(res.body.ticket.status).toBe("CANCELADO");
+  });
+
+  // O modal de troca consome esta rota; ela precisa aplicar a mesma RN11 da
+  // edição, senão o representante escolhe algo que o PATCH depois recusa.
+  it("lista alternativas só do mesmo encaixe, com estoque, sem o produto atual", async () => {
+    const atual = await createLedModel("TESTE-ALT", 5);
+    const mesmoEncaixe = await createLedModel("TESTE-ALT", 8);
+    const semEstoque = await createLedModel("TESTE-ALT", 0);
+    const outroEncaixe = await createLedModel("TESTE-ALT-OUTRO", 9);
+    createdLedModelIds.push(atual.id, mesmoEncaixe.id, semEstoque.id, outroEncaixe.id);
+
+    const criado = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: atual.id, position: "FAROL_BAIXO", quantity: 1 }] });
+    const ticketId = criado.body.ticket.id;
+    const itemId = criado.body.ticket.items[0].id;
+    createdTicketIds.push(ticketId);
+
+    const res = await request(app)
+      .get(`/tickets/${ticketId}/items/${itemId}/alternatives`)
+      .set("Cookie", rep.cookies);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.alternatives.map((a: { id: string }) => a.id);
+    expect(ids).toContain(mesmoEncaixe.id);
+    expect(ids).not.toContain(atual.id);
+    expect(ids).not.toContain(semEstoque.id);
+    expect(ids).not.toContain(outroEncaixe.id);
+  });
+
+  it("não deixa o cliente final listar alternativas de troca", async () => {
+    const led = await createLedModel("TESTE-ALT-403");
+    createdLedModelIds.push(led.id);
+
+    const criado = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }] });
+    createdTicketIds.push(criado.body.ticket.id);
+
+    const res = await request(app)
+      .get(`/tickets/${criado.body.ticket.id}/items/${criado.body.ticket.items[0].id}/alternatives`)
+      .set("Cookie", client.cookies);
+
+    expect(res.status).toBe(403);
+  });
+
   // A rota já barra a edição de ticket fechado; este teste ataca a escrita
   // direto no repositório, que é o que acontece quando um "concluir"
   // concorrente fecha o ticket depois da checagem do service e antes do UPDATE.
@@ -313,5 +377,34 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
 
     const item = await prisma.reservationItem.findUniqueOrThrow({ where: { id: itemId } });
     expect(item.ledModelId).toBe(led.id);
+  });
+  // O telefone fica no ticket, nao na conta: e o que o painel usa pro deep link
+  // de WhatsApp, e quem nunca pediu nada nao tem telefone gravado.
+  it("guarda o telefone informado na criacao do ticket e devolve null quando nao vem", async () => {
+    const led = await createLedModel("TESTE-FONE");
+    createdLedModelIds.push(led.id);
+    const item = { ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 };
+
+    const comFone = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [item], customerPhone: "47999990000" });
+    createdTicketIds.push(comFone.body.ticket.id);
+    expect(comFone.status).toBe(201);
+    expect(comFone.body.ticket.customerPhone).toBe("47999990000");
+
+    const semFone = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [item] });
+    createdTicketIds.push(semFone.body.ticket.id);
+    expect(semFone.status).toBe(201);
+    expect(semFone.body.ticket.customerPhone).toBeNull();
+
+    const curto = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [item], customerPhone: "123" });
+    expect(curto.status).toBe(400);
   });
 });

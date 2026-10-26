@@ -13,6 +13,10 @@ export class CatalogService {
     return this.repository.createLedModel(input);
   }
 
+  listLedModels(): Promise<LedModelRecord[]> {
+    return this.repository.listLedModels();
+  }
+
   async createFitting(input: CreateFittingInput): Promise<void> {
     const exists = await this.repository.vehicleModelExists(input.vehicleModelId);
     if (!exists) {

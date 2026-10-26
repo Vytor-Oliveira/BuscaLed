@@ -14,6 +14,8 @@ export interface LedModelRecord {
   sku: string;
   name: string;
   socketCode: string;
+  stockQty: number;
+  stockMin: number;
 }
 
 export interface CreateFittingInput {
@@ -24,6 +26,7 @@ export interface CreateFittingInput {
 
 export interface CatalogRepository {
   createLedModel(input: CreateLedModelInput): Promise<LedModelRecord>;
+  listLedModels(): Promise<LedModelRecord[]>;
   vehicleModelExists(vehicleModelId: string): Promise<boolean>;
   createFitting(input: CreateFittingInput): Promise<void>;
 }

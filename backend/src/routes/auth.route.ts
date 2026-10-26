@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
+import { requireAuth } from "../middleware/auth.middleware";
 import { PrismaUserRepository } from "../repositories/user.repository";
 import { AuthService } from "../services/auth/auth.service";
 import { ConsoleEmailSender } from "../services/notification/console-email-sender";
@@ -157,6 +158,20 @@ authRouter.post("/refresh", async (req, res) => {
     res.json({ message: "Token renovado." });
   } catch {
     res.status(401).json({ error: "Refresh token inválido ou expirado." });
+  }
+});
+
+authRouter.get("/me", requireAuth, async (req, res, next) => {
+  try {
+    const profile = await authService.getProfile(req.user!.id);
+    if (!profile) {
+      // Token valido de usuario que nao existe mais: sessao morta.
+      res.status(401).json({ error: "Sessão inválida ou expirada." });
+      return;
+    }
+    res.json({ user: profile });
+  } catch (error) {
+    next(error);
   }
 });
 

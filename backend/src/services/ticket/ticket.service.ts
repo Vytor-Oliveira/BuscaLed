@@ -1,4 +1,5 @@
 import { ReservationStatus } from "@prisma/client";
+import { UserRole } from "../auth/jwt";
 import { EmailSender } from "../notification/types";
 import { StockService } from "../stock/stock.service";
 import {
@@ -8,6 +9,7 @@ import {
   InvalidStatusTransitionError,
   LedModelNotFoundForTicketError,
   OPEN_STATUSES,
+  TicketItemAlternative,
   TicketItemNotFoundError,
   TicketNotFoundError,
   TicketOwnershipError,
@@ -23,7 +25,11 @@ export class TicketService {
     private readonly repEmail: string
   ) {}
 
-  async createTicket(userId: string, items: CreateTicketItemInput[]): Promise<TicketRecord> {
+  async createTicket(
+    userId: string,
+    items: CreateTicketItemInput[],
+    customerPhone?: string
+  ): Promise<TicketRecord> {
     if (items.length === 0) {
       throw new EmptyTicketError();
     }
@@ -34,7 +40,7 @@ export class TicketService {
       throw new LedModelNotFoundForTicketError(items[missingIndex].ledModelId);
     }
 
-    const ticket = await this.repository.create(userId, items);
+    const ticket = await this.repository.create(userId, items, customerPhone);
     await this.notify(() =>
       this.emailSender.sendNewTicketNotification(this.repEmail, {
         ticketId: ticket.id,
@@ -75,6 +81,28 @@ export class TicketService {
     return this.repository.updateStatus(id, ["PENDENTE"], "CONFIRMADO");
   }
 
+  // Alimenta o modal de troca: a mesma regra do editItemProduct, só que
+  // listando quem passaria nela, para o representante não tentar e tomar 409.
+  async listItemAlternatives(
+    ticketId: string,
+    itemId: string
+  ): Promise<TicketItemAlternative[]> {
+    const ticket = await this.requireExisting(ticketId);
+    if (!OPEN_STATUSES.includes(ticket.status)) {
+      throw new InvalidStatusTransitionError(
+        `Não é possível editar um item de ticket ${ticket.status}.`
+      );
+    }
+
+    const item = await this.repository.findItem(itemId);
+    if (!item || item.reservationId !== ticketId) {
+      throw new TicketItemNotFoundError(itemId);
+    }
+
+    const candidatos = await this.repository.findInStockBySocket(item.socketCode);
+    return candidatos.filter((candidato) => candidato.id !== item.ledModelId);
+  }
+
   // RN11 — o produto substituto precisa ser do mesmo encaixe do original.
   async editItemProduct(
     ticketId: string,
@@ -87,6 +115,7 @@ export class TicketService {
         `Não é possível editar um item de ticket ${ticket.status}.`
       );
     }
+
 
     const item = await this.repository.findItem(itemId);
     if (!item || item.reservationId !== ticketId) {
@@ -170,9 +199,16 @@ export class TicketService {
     return concluded;
   }
 
-  async cancelTicket(id: string, requestingUserId: string): Promise<TicketRecord> {
+  // RF12 — representante e admin gerenciam o status, cancelamento incluso. A
+  // posse (RN14) só restringe o cliente, que é dono de um ticket só.
+  async cancelTicket(
+    id: string,
+    requestingUserId: string,
+    requestingRole: UserRole
+  ): Promise<TicketRecord> {
     const ticket = await this.requireExisting(id);
-    if (ticket.userId !== requestingUserId) {
+    const peloCliente = requestingRole === "user";
+    if (peloCliente && ticket.userId !== requestingUserId) {
       throw new TicketOwnershipError(id);
     }
     if (!OPEN_STATUSES.includes(ticket.status)) {
@@ -180,8 +216,13 @@ export class TicketService {
     }
 
     const updated = await this.repository.updateStatus(id, OPEN_STATUSES, "CANCELADO");
+    // RN13 manda avisar o representante quando o cliente cancela; no caminho
+    // inverso quem precisa saber é o cliente.
     await this.notify(() =>
-      this.emailSender.sendTicketCancelledNotification(this.repEmail, { ticketId: id })
+      this.emailSender.sendTicketCancelledNotification(
+        peloCliente ? this.repEmail : updated.userEmail,
+        { ticketId: id }
+      )
     );
 
     return updated;

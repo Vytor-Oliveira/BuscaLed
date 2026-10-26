@@ -4,6 +4,7 @@ import {
   InvalidStatusTransitionError,
   LedModelSummary,
   OPEN_STATUSES,
+  TicketItemAlternative,
   TicketItemDetail,
   TicketNotFoundError,
   TicketRecord,
@@ -26,6 +27,7 @@ function toTicketRecord(reservation: TicketWithRelations): TicketRecord {
     id: reservation.id,
     userId: reservation.userId,
     userEmail: reservation.user.email,
+    customerPhone: reservation.customerPhone,
     status: reservation.status,
     createdAt: reservation.createdAt,
     updatedAt: reservation.updatedAt,
@@ -70,10 +72,15 @@ export class PrismaTicketRepository implements TicketRepository {
     return reservation ? toTicketRecord(reservation) : null;
   }
 
-  async create(userId: string, items: CreateTicketItemInput[]): Promise<TicketRecord> {
+  async create(
+    userId: string,
+    items: CreateTicketItemInput[],
+    customerPhone?: string
+  ): Promise<TicketRecord> {
     const reservation = await this.prisma.reservation.create({
       data: {
         userId,
+        customerPhone,
         items: {
           create: items.map((item) => ({
             ledModelId: item.ledModelId,
@@ -160,6 +167,14 @@ export class PrismaTicketRepository implements TicketRepository {
     return this.prisma.ledModel.findUnique({
       where: { id: ledModelId },
       select: { id: true, sku: true, name: true, socketCode: true },
+    });
+  }
+
+  async findInStockBySocket(socketCode: string): Promise<TicketItemAlternative[]> {
+    return this.prisma.ledModel.findMany({
+      where: { socketCode, stockQty: { gt: 0 } },
+      select: { id: true, sku: true, name: true, socketCode: true, stockQty: true },
+      orderBy: { stockQty: "desc" },
     });
   }
 }

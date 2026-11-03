@@ -8,6 +8,23 @@ export interface VeiculoEscolhido {
   year: number;
 }
 
+// Faixa aberta chega do catálogo como 0 (até AAAA) ou 9999 (a partir de AAAA) —
+// ver parseYearRange no importador. Como o seletor é do carro que a pessoa tem,
+// a janela plausível vai de 1950 (o MIN_YEAR do parser) ao ano-modelo seguinte,
+// que concessionária já vende. Sem o corte, "até 1996" ofereceria o ano 0.
+const ANO_MINIMO = 1950;
+const ANO_MAXIMO = new Date().getFullYear() + 1;
+
+export function rotuloFaixa(opcao: VehicleModelOption): string {
+  if (opcao.yearStart === 0) {
+    return `até ${opcao.yearEnd}`;
+  }
+  if (opcao.yearEnd === 9999) {
+    return `${opcao.yearStart} em diante`;
+  }
+  return `${opcao.yearStart}–${opcao.yearEnd}`;
+}
+
 /**
  * Marca → Modelo → Ano em seletores encadeados. O catálogo tem ~1900 modelos
  * com grafia própria da planilha do parceiro ("FOCUS HATCH/ SE/ SE PLUS"), então
@@ -85,13 +102,15 @@ export function SeletorVeiculo({
   const escolhido = indiceModelo === "" ? null : modelos[Number(indiceModelo)];
 
   // Cada faixa de ano é uma linha própria do catálogo, então os anos válidos
-  // saem da faixa do modelo escolhido.
+  // saem da faixa do modelo escolhido, recortada na janela plausível.
   const anos = useMemo(() => {
     if (!escolhido) {
       return [];
     }
+    const inicio = Math.max(escolhido.yearStart, ANO_MINIMO);
+    const fim = Math.min(escolhido.yearEnd, ANO_MAXIMO);
     const lista: number[] = [];
-    for (let a = escolhido.yearEnd; a >= escolhido.yearStart; a -= 1) {
+    for (let a = fim; a >= inicio; a -= 1) {
       lista.push(a);
     }
     return lista;
@@ -130,7 +149,7 @@ export function SeletorVeiculo({
           <option value="">{carregando ? "Carregando…" : "Selecione…"}</option>
           {modelos.map((m, i) => (
             <option key={`${m.model}-${m.yearStart}`} value={String(i)}>
-              {m.model} ({m.yearStart}–{m.yearEnd})
+              {m.model} ({rotuloFaixa(m)})
             </option>
           ))}
         </select>

@@ -78,4 +78,28 @@ describe("Fila de notificações (integração real — Bull + Redis, sem mocks 
       expect.objectContaining({ ticketId: "t-2" })
     );
   });
+  // O retry e o log de falha entraram pela revisão do PR #7: sem eles uma
+  // oscilação do SMTP perdia o e-mail em silêncio.
+  it("tenta de novo quando o envio falha e registra a falha ao esgotar as tentativas", async () => {
+    queue = createNotificationQueue(TEST_QUEUE_NAME);
+    const sender = createSpySender();
+    sender.sendNewTicketNotification.mockRejectedValue(new Error("SMTP fora do ar"));
+    registerNotificationProcessor(queue, sender);
+
+    const falhou = new Promise<number>((resolve) => {
+      queue.on("failed", (job) => {
+        if (job.attemptsMade >= 2) {
+          resolve(job.attemptsMade);
+        }
+      });
+    });
+
+    await queue.add(
+      { type: "newTicket", to: "rep@teste.local", info: { ticketId: "t-falha", itemCount: 1 } },
+      { attempts: 2, backoff: 0 }
+    );
+
+    await expect(falhou).resolves.toBeGreaterThanOrEqual(2);
+    expect(sender.sendNewTicketNotification).toHaveBeenCalledTimes(2);
+  });
 });

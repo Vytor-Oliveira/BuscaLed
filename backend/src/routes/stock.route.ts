@@ -25,6 +25,33 @@ stockRouter.get("/:ledModelId", async (req, res, next) => {
   }
 });
 
+const minimumSchema = z.object({
+  stockMin: z.number().int().nonnegative("O mínimo precisa ser zero ou um inteiro positivo."),
+});
+
+stockRouter.patch("/:ledModelId/minimum", async (req, res, next) => {
+  const parsed = minimumSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "O mínimo precisa ser zero ou um inteiro positivo." });
+    return;
+  }
+
+  try {
+    const stock = await stockService.updateMinimum(req.params.ledModelId, parsed.data.stockMin);
+    res.json({ stock });
+  } catch (error) {
+    if (error instanceof LedModelNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (error instanceof InvalidQuantityError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    next(error);
+  }
+});
+
 stockRouter.post("/:ledModelId/restock", async (req, res, next) => {
   const parsed = restockSchema.safeParse(req.body);
   if (!parsed.success) {

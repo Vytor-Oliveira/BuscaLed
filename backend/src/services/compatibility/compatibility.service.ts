@@ -4,6 +4,7 @@ import {
   PositionCompatibility,
   SearchHistoryRepository,
   VehicleInfo,
+  VehicleModelOption,
   VehicleNotFoundError,
 } from "./types";
 
@@ -12,6 +13,14 @@ export class CompatibilityService {
     private readonly repository: CompatibilityRepository,
     private readonly searchHistory?: SearchHistoryRepository
   ) {}
+
+  listMakes(): Promise<string[]> {
+    return this.repository.listMakes();
+  }
+
+  listModels(make: string): Promise<VehicleModelOption[]> {
+    return this.repository.listModelsByMake(make);
+  }
 
   async findCompatibleLeds(vehicle: VehicleInfo): Promise<PositionCompatibility[]> {
     const vehicleModel = await this.repository.findVehicleModel(vehicle);

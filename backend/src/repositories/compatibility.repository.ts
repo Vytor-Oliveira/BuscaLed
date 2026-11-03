@@ -4,6 +4,7 @@ import {
   CompatibleLed,
   VehicleFittingRecord,
   VehicleInfo,
+  VehicleModelOption,
 } from "../services/compatibility/types";
 
 export class PrismaCompatibilityRepository implements CompatibilityRepository {
@@ -18,6 +19,25 @@ export class PrismaCompatibilityRepository implements CompatibilityRepository {
         yearEnd: { gte: vehicle.year },
       },
       select: { id: true },
+    });
+  }
+
+  async listMakes(): Promise<string[]> {
+    const marcas = await this.prisma.vehicleModel.findMany({
+      distinct: ["make"],
+      select: { make: true },
+      orderBy: { make: "asc" },
+    });
+    return marcas.map((m) => m.make);
+  }
+
+  async listModelsByMake(make: string): Promise<VehicleModelOption[]> {
+    // Um mesmo nome de modelo aparece em varias faixas de ano; cada faixa e
+    // uma opcao propria, porque o ano decide qual encaixe vale.
+    return this.prisma.vehicleModel.findMany({
+      where: { make },
+      select: { model: true, yearStart: true, yearEnd: true },
+      orderBy: [{ model: "asc" }, { yearStart: "asc" }],
     });
   }
 

@@ -12,6 +12,29 @@ const service = new CompatibilityService(
   new PrismaSearchHistoryRepository(prisma)
 );
 
+compatibilityRouter.get("/makes", async (_req, res, next) => {
+  try {
+    res.json({ makes: await service.listMakes() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+compatibilityRouter.get("/models", async (req, res, next) => {
+  const { make } = req.query;
+
+  if (typeof make !== "string" || make.trim() === "") {
+    res.status(400).json({ error: "Informe a marca." });
+    return;
+  }
+
+  try {
+    res.json({ models: await service.listModels(make) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 compatibilityRouter.get("/", async (req, res, next) => {
   const { make, model, year } = req.query;
 

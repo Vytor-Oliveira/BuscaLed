@@ -144,4 +144,50 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
     });
     expect(registroOk.resultCount).toBe(1);
   });
+
+  // Alimentam os seletores da Home: sem eles a pessoa teria que acertar a
+  // grafia exata de um catalogo com ~1900 modelos.
+  describe("listagem para os seletores de veiculo", () => {
+    it("devolve as marcas em ordem alfabetica e sem repetir", async () => {
+      const res = await request(app).get("/compatibility/makes");
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.makes)).toBe(true);
+      expect(res.body.makes.length).toBeGreaterThan(0);
+
+      const marcas: string[] = res.body.makes;
+      expect([...new Set(marcas)]).toHaveLength(marcas.length);
+      expect([...marcas].sort((a, b) => a.localeCompare(b))).toEqual(marcas);
+    });
+
+    it("devolve os modelos da marca com a faixa de ano", async () => {
+      const marca = `TESTE-SELETOR-${Date.now()}`;
+      const criado = await prisma.vehicleModel.create({
+        data: { make: marca, model: "MODELO SELETOR", yearStart: 2012, yearEnd: 2015 },
+      });
+      createdVehicleModelIds.push(criado.id);
+
+      const res = await request(app).get(`/compatibility/models?make=${marca}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.models).toEqual([
+        { model: "MODELO SELETOR", yearStart: 2012, yearEnd: 2015 },
+      ]);
+    });
+
+    it("nao devolve modelo de outra marca", async () => {
+      const res = await request(app).get("/compatibility/models?make=MARCA-QUE-NAO-EXISTE");
+
+      expect(res.status).toBe(200);
+      expect(res.body.models).toEqual([]);
+    });
+
+    it("recusa listagem de modelos sem a marca", async () => {
+      const semMarca = await request(app).get("/compatibility/models");
+      expect(semMarca.status).toBe(400);
+
+      const vazia = await request(app).get("/compatibility/models?make=");
+      expect(vazia.status).toBe(400);
+    });
+  });
 });

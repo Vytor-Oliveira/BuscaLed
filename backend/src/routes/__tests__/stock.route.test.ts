@@ -32,7 +32,9 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
     }
     await prisma.$disconnect();
     await closeNotificationQueue();
-  });
+    // Limpeza em tabelas grandes: 5s (padrao do Jest) estoura com o
+    // container frio e deixa o CI vermelho sem motivo real.
+  }, 30_000);
 
   it("bloqueia acesso sem autenticação", async () => {
     const res = await request(app).get("/stock/qualquer-id");
@@ -95,6 +97,7 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
       new PrismaStockRepository(prisma),
       {
         sendConfirmationEmail: jest.fn(),
+        sendPasswordResetEmail: jest.fn(),
         sendLowStockAlert: jest.fn(),
         sendNewTicketNotification: jest.fn(),
         sendTicketEditedNotification: jest.fn(),
@@ -117,6 +120,7 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
       new PrismaStockRepository(prisma),
       {
         sendConfirmationEmail: jest.fn(),
+        sendPasswordResetEmail: jest.fn(),
         sendLowStockAlert,
         sendNewTicketNotification: jest.fn(),
         sendTicketEditedNotification: jest.fn(),
@@ -133,5 +137,59 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
       "admin@teste.local",
       expect.objectContaining({ sku: ledModel.sku })
     );
+  });
+
+  // RF13 — o minimo e o gatilho do alerta, entao o admin ajusta por produto.
+  it("admin edita o nivel minimo e isso muda o alerta de estoque baixo", async () => {
+    const cookies = await createAdminAndLogin();
+    const ledModel = await prisma.ledModel.create({
+      data: { sku: `TESTE-MIN-${Date.now()}`, name: "LED minimo", socketCode: "H4", stockQty: 8, stockMin: 5 },
+    });
+    createdLedModelIds.push(ledModel.id);
+
+    const antes = await request(app).get(`/stock/${ledModel.id}`).set("Cookie", cookies);
+    expect(antes.body.stock.belowMinimum).toBe(false);
+
+    const res = await request(app)
+      .patch(`/stock/${ledModel.id}/minimum`)
+      .set("Cookie", cookies)
+      .send({ stockMin: 10 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.stock.stockMin).toBe(10);
+    // Mesma quantidade, minimo maior: agora esta abaixo.
+    expect(res.body.stock.belowMinimum).toBe(true);
+  });
+
+  it("aceita zero como minimo, que desliga o alerta", async () => {
+    const cookies = await createAdminAndLogin();
+    const ledModel = await prisma.ledModel.create({
+      data: { sku: `TESTE-MIN0-${Date.now()}`, name: "LED sem alerta", socketCode: "H4", stockQty: 1, stockMin: 5 },
+    });
+    createdLedModelIds.push(ledModel.id);
+
+    const res = await request(app)
+      .patch(`/stock/${ledModel.id}/minimum`)
+      .set("Cookie", cookies)
+      .send({ stockMin: 0 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.stock.belowMinimum).toBe(false);
+  });
+
+  it("recusa minimo negativo e produto inexistente", async () => {
+    const cookies = await createAdminAndLogin();
+
+    const negativo = await request(app)
+      .patch("/stock/qualquer-id/minimum")
+      .set("Cookie", cookies)
+      .send({ stockMin: -1 });
+    expect(negativo.status).toBe(400);
+
+    const inexistente = await request(app)
+      .patch("/stock/nao-existe/minimum")
+      .set("Cookie", cookies)
+      .send({ stockMin: 3 });
+    expect(inexistente.status).toBe(404);
   });
 });

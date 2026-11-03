@@ -44,10 +44,20 @@ export interface PositionCompatibility {
   models: CompatibleLed[];
 }
 
+// Alimenta os seletores da busca por Marca/Modelo/Ano: sem isso a pessoa
+// precisa acertar a grafia exata de um catálogo de ~1900 modelos.
+export interface VehicleModelOption {
+  model: string;
+  yearStart: number;
+  yearEnd: number;
+}
+
 export interface CompatibilityRepository {
   findVehicleModel(vehicle: VehicleInfo): Promise<{ id: string } | null>;
   findFittings(vehicleModelId: string): Promise<VehicleFittingRecord[]>;
   findLedModelsBySocketCodes(socketCodes: string[]): Promise<CompatibleLed[]>;
+  listMakes(): Promise<string[]>;
+  listModelsByMake(make: string): Promise<VehicleModelOption[]>;
 }
 
 /**

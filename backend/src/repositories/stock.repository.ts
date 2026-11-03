@@ -22,6 +22,24 @@ export class PrismaStockRepository implements StockRepository {
     return model ? toStockLevel(model) : null;
   }
 
+  async updateMinimum(ledModelId: string, stockMin: number): Promise<StockLevel> {
+    try {
+      const updated = await this.prisma.ledModel.update({
+        where: { id: ledModelId },
+        data: { stockMin },
+      });
+      return toStockLevel(updated);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === PRISMA_RECORD_NOT_FOUND_ERROR_CODE
+      ) {
+        throw new LedModelNotFoundError(ledModelId);
+      }
+      throw error;
+    }
+  }
+
   async incrementStock(ledModelId: string, quantity: number): Promise<StockLevel> {
     try {
       const updated = await this.prisma.ledModel.update({

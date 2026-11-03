@@ -112,20 +112,25 @@ Frontend (React + Vite) ── requisições REST ──▶ Backend API (Node.js
 
 ### Faixas de ano da matriz de compatibilidade
 
-A coluna `ANO` da planilha da Shocklight usa cinco notações. O sinal aponta para o
-lado **aberto** da faixa; o ano fica sempre do lado fechado:
+A coluna `ANO` da planilha da Shocklight usa cinco notações. O `>` significa
+**"a partir de"** em qualquer posição; quem marca **"até"** é o `<`:
 
-| Na planilha | Significado | Gravado como |
-|---|---|---|
-| `AAAA` | só aquele ano | `yearStart = AAAA`, `yearEnd = AAAA` |
-| `AAAA > BBBB` | de AAAA a BBBB | `yearStart = AAAA`, `yearEnd = BBBB` |
-| `AAAA >` | a partir de AAAA (ainda em produção) | `yearStart = AAAA`, `yearEnd = 9999` |
-| `> AAAA` | até AAAA | `yearStart = 0`, `yearEnd = AAAA` |
-| `< AAAA` | até AAAA (mesmo que `> AAAA`) | `yearStart = 0`, `yearEnd = AAAA` |
+| Na planilha | Significado | Gravado como | Linhas |
+|---|---|---|---|
+| `AAAA` | só aquele ano | `yearStart = AAAA`, `yearEnd = AAAA` | 329 |
+| `AAAA > BBBB` | de AAAA a BBBB | `yearStart = AAAA`, `yearEnd = BBBB` | 2100 |
+| `AAAA >` | a partir de AAAA (ainda em produção) | `yearStart = AAAA`, `yearEnd = 9999` | 46 |
+| `> AAAA` | a partir de AAAA (mesmo que `AAAA >`) | `yearStart = AAAA`, `yearEnd = 9999` | 120 |
+| `< AAAA` | até AAAA | `yearStart = 0`, `yearEnd = AAAA` | 1 |
+
+Ler `>` como "até" foi testado e descartado: as 120 linhas `> AAAA` são carros
+recentes (Audi R8 V10 Plus, Volvo XC60, Land Rover Defender TDi), e sob essa
+leitura um Passat 1979 casava com o `PASSAT HIGHLINE > 2016` e recebia o farol
+dele — resposta errada, pior que não encontrar.
 
 `0` e `9999` são sentinelas de faixa aberta, não anos. A busca casa por
 `yearStart <= ano && yearEnd >= ano`, então a sentinela abre um lado sem virar
-curinga: um carro 2022 não casa com `> 2016` (= até 2016).
+curinga: um carro 2010 não casa com `2015 >`, e um de 1979 não casa com `> 2016`.
 
 Os seletores de Marca/Modelo/Ano recortam a faixa na janela plausível (1950 até o
 ano-modelo seguinte) e mostram a faixa aberta como "até 1996" ou "2016 em diante",

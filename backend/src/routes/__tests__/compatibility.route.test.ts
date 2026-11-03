@@ -356,4 +356,42 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
     expect(await soquetes(makeApartir, 2022)).toEqual([soqueteApartir]);
     expect(await soquetes(makeApartir, 2010)).toBeNull();
   });
+  // Regressao da semantica de ">". A planilha tem, lado a lado:
+  //   VOLKSWAGEN | PASSAT HIGHLINE              | ano "> 2016"
+  //   VOLKSWAGEN | Passat Highline 2.0 TSI DSG  | ano "2018 > 2019"
+  // As duas colapsam no nome-base PASSAT HIGHLINE. Lendo "> 2016" como "ate
+  // 2016", a faixa virava {0, 2016} e um Passat 1979 casava com o Highline,
+  // recebendo o farol de um carro que so existe a partir de 2016 — resposta
+  // errada, pior que nao achar. Marca sintetica porque a matriz real do
+  // parceiro nao esta no banco do CI.
+  it("Passat 1979 não casa com o Passat Highline, que é 'a partir de 2016'", async () => {
+    const runId = Date.now();
+    const make = `TESTEPASSAT${runId}`;
+    const socket = `PASSAT-H7-${runId}`;
+    buscasRegistradas.push(make);
+
+    const highline = await prisma.vehicleModel.create({
+      data: { make, model: "PASSAT HIGHLINE", yearStart: 2016, yearEnd: 9999 },
+    });
+    const dsg = await prisma.vehicleModel.create({
+      data: { make, model: "PASSAT HIGHLINE", yearStart: 2018, yearEnd: 2019 },
+    });
+    createdVehicleModelIds.push(highline.id, dsg.id);
+
+    await prisma.vehicleFitting.createMany({
+      data: [
+        { vehicleModelId: highline.id, position: "FAROL_BAIXO", socketCode: socket },
+        { vehicleModelId: dsg.id, position: "FAROL_BAIXO", socketCode: socket },
+      ],
+    });
+
+    const antigo = await request(app).get(`/compatibility?make=${make}&model=PASSAT&year=1979`);
+    expect(antigo.status).toBe(404);
+
+    // Prova que o 404 acima e do filtro de ano, nao de semeadura que falhou.
+    const recente = await request(app).get(`/compatibility?make=${make}&model=PASSAT&year=2020`);
+    expect(recente.status).toBe(200);
+    const positions = recente.body.positions as Array<{ position: string; socketCodes: string[] }>;
+    expect(positions.find((p) => p.position === "FAROL_BAIXO")?.socketCodes).toEqual([socket]);
+  });
 });

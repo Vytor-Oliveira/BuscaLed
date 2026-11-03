@@ -72,12 +72,12 @@ describe("importCompatMatrix (integração real — Postgres, sem mocks)", () =>
     // "LED" na posição LANTERNA_DIANTEIRA foi pulada (não vira fitting)
     expect(modeloB?.fittings.some((f) => f.position === "LANTERNA_DIANTEIRA")).toBe(false);
 
-    // MODELO C -> "> 2016" é "até 2016" (aberto pra trás)
+    // MODELO C -> "> 2016" é "a partir de 2016", igual a "2016 >"
     const modeloC = vehicles.find((v) => v.model === "MODELO C");
-    expect(modeloC?.yearStart).toBe(0);
-    expect(modeloC?.yearEnd).toBe(2016);
+    expect(modeloC?.yearStart).toBe(2016);
+    expect(modeloC?.yearEnd).toBe(9999);
 
-    // MODELO D -> "< 1996" é a mesma coisa que "> 1996"
+    // MODELO D -> "< 1996" é o único formato que abre o início
     const modeloD = vehicles.find((v) => v.model === "MODELO D");
     expect(modeloD?.yearStart).toBe(0);
     expect(modeloD?.yearEnd).toBe(1996);

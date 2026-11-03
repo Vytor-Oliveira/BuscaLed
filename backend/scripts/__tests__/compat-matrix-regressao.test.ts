@@ -1,6 +1,10 @@
 import fs from "fs";
 import path from "path";
-import { InvalidYearRangeError, parseYearRange } from "../compat-matrix-parsers";
+import {
+  InvalidYearRangeError,
+  extractBaseModel,
+  parseYearRange,
+} from "../compat-matrix-parsers";
 import { RawRow } from "../import-compat-matrix";
 
 const MATRIZ = path.join(__dirname, "..", "..", "data", "compat-matrix.json");
@@ -47,9 +51,26 @@ descreve("matriz real da Shocklight", () => {
     expect(inalcancaveis).toEqual([]);
   });
 
-  it("as 46 linhas 'AAAA >' abrem a faixa à direita, não yearEnd 0", () => {
-    const abertas = linhas.filter((row) => /^\d{4}\s*>$/.test(row.ano.trim()));
-    expect(abertas).toHaveLength(46);
+  // Modelo é a chave do banco: make + nome-base + faixa. Várias linhas da
+  // planilha (acabamentos) colapsam no mesmo modelo, daí linha != modelo.
+  function modelosDe(rowsFiltradas: RawRow[]): Set<string> {
+    return new Set(
+      rowsFiltradas.map((row) => {
+        const faixa = parseYearRange(row.ano);
+        const make = row.montadora.trim().toUpperCase();
+        return `${make}|${extractBaseModel(row.carro).toUpperCase()}|${faixa.yearStart}|${faixa.yearEnd}`;
+      })
+    );
+  }
+
+  // 46 linhas na forma "AAAA >" mais 120 na forma "> AAAA": ">" é "a partir
+  // de" nas duas posições. Era a forma "AAAA >" que gravava yearEnd 0.
+  it("as 166 linhas 'a partir de' abrem a faixa à direita, em 144 modelos", () => {
+    const abertas = linhas.filter((row) =>
+      /^(\d{4}\s*>|>\s*\d{4})$/.test(row.ano.trim())
+    );
+    expect(abertas).toHaveLength(166);
+    expect(modelosDe(abertas).size).toBe(144);
 
     for (const row of abertas) {
       const faixa = parseYearRange(row.ano);
@@ -58,16 +79,12 @@ descreve("matriz real da Shocklight", () => {
     }
   });
 
-  // 120 no formato "> AAAA" mais 1 no "< AAAA" (AUDI A3, "< 1996").
-  it("as 121 linhas 'até AAAA' abrem a faixa à esquerda (yearStart 0)", () => {
-    const abertas = linhas.filter((row) => /^[<>]\s*\d{4}$/.test(row.ano.trim()));
-    expect(abertas).toHaveLength(121);
-
-    for (const row of abertas) {
-      const faixa = parseYearRange(row.ano);
-      expect(faixa.yearStart).toBe(0);
-      expect(faixa.yearEnd).toBeLessThan(9999);
-    }
+  // Só o "< AAAA" abre o início, e a planilha tem uma linha só: AUDI A3.
+  it("a única linha 'até AAAA' abre a faixa à esquerda, em 1 modelo", () => {
+    const abertas = linhas.filter((row) => /^<\s*\d{4}$/.test(row.ano.trim()));
+    expect(abertas).toHaveLength(1);
+    expect(modelosDe(abertas).size).toBe(1);
+    expect(parseYearRange(abertas[0].ano)).toEqual({ yearStart: 0, yearEnd: 1996 });
   });
 
   // O "2012 > 215" do Cruze foi corrigido na planilha de origem, então hoje a

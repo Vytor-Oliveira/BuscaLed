@@ -59,9 +59,9 @@ export const ESPACO_NAO_SEPARAVEL = new RegExp(String.fromCharCode(0x00a0), "g")
 
 const FORMATO_ANO_UNICO = /^(\d{4})$/;
 const FORMATO_INTERVALO = /^(\d{4})\s*>\s*(\d{4})$/;
-const FORMATO_A_PARTIR = /^(\d{4})\s*>$/;
-const FORMATO_ATE_MAIOR = /^>\s*(\d{4})$/;
-const FORMATO_ATE_MENOR = /^<\s*(\d{4})$/;
+const FORMATO_A_PARTIR_SUFIXO = /^(\d{4})\s*>$/;
+const FORMATO_A_PARTIR_PREFIXO = /^>\s*(\d{4})$/;
+const FORMATO_ATE = /^<\s*(\d{4})$/;
 
 function anoValido(raw: string, valor: string): number {
   const ano = Number(valor);
@@ -72,16 +72,18 @@ function anoValido(raw: string, valor: string): number {
 }
 
 /**
- * Trata os 5 formatos de ano da planilha real. A notação é simétrica: o sinal
- * aponta para o lado aberto da faixa e o ano fica sempre do lado fechado.
+ * Trata os 5 formatos de ano da planilha real. O ">" significa "a partir de" em
+ * qualquer posição; quem marca "até" é o "<", que aparece em 1 linha de 2596.
  *
  *   "AAAA"         ano único         -> { AAAA, AAAA }
  *   "AAAA > BBBB"  intervalo fechado -> { AAAA, BBBB }
  *   "AAAA >"       a partir de AAAA  -> { AAAA, 9999 }
- *   "> AAAA"       até AAAA          -> { 0, AAAA }
+ *   "> AAAA"       a partir de AAAA  -> { AAAA, 9999 }
  *   "< AAAA"       até AAAA          -> { 0, AAAA }
  *
- * Semântica confirmada com o parceiro (RFC Seção 7.2).
+ * Ler ">" como "até" foi testado e descartado: as 120 linhas "> AAAA" são
+ * carros recentes (R8 V10 Plus, XC60, Defender TDI), e sob "até" um Passat 1979
+ * casava com o Passat Highline "> 2016" e recebia o farol dele.
  *
  * Nada é corrigido em silêncio: valor fora de forma ou fora da faixa de anos
  * lança, para a linha aparecer no relatório de importação em vez de virar
@@ -110,12 +112,13 @@ export function parseYearRange(raw: string): { yearStart: number; yearEnd: numbe
     return { yearStart, yearEnd };
   }
 
-  const aPartir = FORMATO_A_PARTIR.exec(value);
+  const aPartir =
+    FORMATO_A_PARTIR_SUFIXO.exec(value) ?? FORMATO_A_PARTIR_PREFIXO.exec(value);
   if (aPartir) {
     return { yearStart: anoValido(raw, aPartir[1]), yearEnd: OPEN_ENDED_UPPER_YEAR };
   }
 
-  const ate = FORMATO_ATE_MAIOR.exec(value) ?? FORMATO_ATE_MENOR.exec(value);
+  const ate = FORMATO_ATE.exec(value);
   if (ate) {
     return { yearStart: OPEN_ENDED_LOWER_YEAR, yearEnd: anoValido(raw, ate[1]) };
   }

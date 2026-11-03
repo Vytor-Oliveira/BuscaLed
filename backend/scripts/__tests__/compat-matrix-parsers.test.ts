@@ -14,15 +14,14 @@ describe("parseYearRange", () => {
     expect(parseYearRange("2020")).toEqual({ yearStart: 2020, yearEnd: 2020 });
   });
 
-  // O sinal aponta pro lado aberto da faixa: '>' na frente do ano abre o
-  // início, '>' depois do ano abre o fim. As duas formas de 'até' convergem.
-  it("trata '> AAAA' como 'até AAAA'", () => {
-    expect(parseYearRange("> 2016")).toEqual({ yearStart: 0, yearEnd: 2016 });
+  // '>' é 'a partir de' nas duas posições — as duas formas dão a mesma faixa.
+  it("trata '> AAAA' como 'a partir de AAAA', igual a 'AAAA >'", () => {
+    expect(parseYearRange("> 2016")).toEqual({ yearStart: 2016, yearEnd: 9999 });
+    expect(parseYearRange("> 2016")).toEqual(parseYearRange("2016 >"));
   });
 
-  it("trata '< AAAA' como 'até AAAA', igual a '> AAAA'", () => {
+  it("trata '< AAAA' como 'até AAAA' — o único formato que abre o início", () => {
     expect(parseYearRange("< 1996")).toEqual({ yearStart: 0, yearEnd: 1996 });
-    expect(parseYearRange("< 2016")).toEqual(parseYearRange("> 2016"));
   });
 
   // Formato que o parser antigo gravava como yearEnd 0, porque fatiava no ">"

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import TicketQueue, { montarLinkWhatsApp, montarMensagem, numeroTicket } from "./TicketQueue";
 
 const ticketBase = {
@@ -143,6 +143,37 @@ describe("TicketQueue", () => {
 
     await screen.findByText("cliente@example.com");
     expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+  });
+
+  // O fundo e um <button> de verdade: fecha no clique e no teclado, sem
+  // precisar de handler de tecla proprio.
+  it("fecha o modal pelo botao de fundo", async () => {
+    const alternativas = [
+      { id: "led-9", sku: "SHK-S16-H4", name: "Ultraled S16", socketCode: "H4", stockQty: 7 },
+    ];
+    globalThis.fetch = ((url: string) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            String(url).includes("/alternatives")
+              ? { alternatives: alternativas }
+              : { tickets: [ticketBase] }
+          ),
+      })) as unknown as typeof fetch;
+
+    render(<TicketQueue />);
+    fireEvent.click(await screen.findByRole("button", { name: /Editar produto do pedido/ }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+    // Dois controles fecham: o do cabecalho e o fundo. O fundo vem primeiro
+    // no DOM, e e ele que esta sendo testado aqui.
+    const fechar = screen.getAllByRole("button", { name: "Fechar" });
+    expect(fechar).toHaveLength(2);
+    fireEvent.click(fechar[0]);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("não deixa editar produto de ticket já concluído (RN14)", async () => {

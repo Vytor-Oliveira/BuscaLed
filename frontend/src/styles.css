@@ -862,7 +862,21 @@ button,
   z-index: 10;
 }
 
+/* Cobre o fundo inteiro atras do modal; o conteudo fica por cima pelo
+   z-index, entao o clique fora fecha sem precisar envolve-lo. */
+.modal-fundo-fechar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
 .modal {
+  position: relative;
+  z-index: 1;
   background: var(--superficie);
   border-radius: 16px;
   padding: 22px;

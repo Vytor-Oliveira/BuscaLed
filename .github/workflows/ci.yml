@@ -3,8 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+  # Sem filtro de branch: PR empilhado (feature -> feature) tambem precisa de CI.
   pull_request:
-    branches: [main]
 
 jobs:
   backend-tests:

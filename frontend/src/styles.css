@@ -574,6 +574,25 @@ button,
   color: var(--ambar);
 }
 
+.campo-minimo {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--texto-tenue);
+  font-weight: 600;
+}
+
+.campo-minimo input {
+  width: 52px;
+  padding: 7px 8px;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pequeno);
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--texto);
+}
+
 .campo-repor {
   width: 68px;
   padding: 8px 9px;
@@ -911,17 +930,147 @@ button,
   }
 }
 
+.chip-select {
+  appearance: none;
+  padding-right: 28px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--texto-fraco) 50%),
+    linear-gradient(135deg, var(--texto-fraco) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  max-width: 190px;
+  text-overflow: ellipsis;
+}
+
+.mensagem-aviso {
+  background: var(--verde-bg);
+  color: #14532d;
+  border-radius: var(--raio-pequeno);
+  padding: 11px 14px;
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+
+.link-discreto {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: var(--azul);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-discreto:hover {
+  text-decoration: underline;
+}
+
+.dica-campo {
+  color: var(--texto-tenue);
+  font-size: 11.5px;
+  margin-top: 4px;
+}
+
+.form-produto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.form-produto label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.form-produto input {
+  padding: 10px 12px;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pequeno);
+  font: inherit;
+  font-weight: 400;
+  min-width: 0;
+}
+
+.form-produto .botao-primario {
+  justify-content: center;
+  height: 40px;
+}
+
 @media (max-width: 720px) {
   .painel {
     grid-template-columns: 1fr;
   }
 
+  /* RFC: no celular a fila vira cards verticais, nao tabela rolando de lado.
+     Cada linha vira um bloco e cada celula ganha o rotulo da coluna. */
+  .tabela-cartao .tabela,
+  .tabela-cartao .tabela tbody,
+  .tabela-cartao .tabela tr,
+  .tabela-cartao .tabela td {
+    display: block;
+    width: 100%;
+  }
+
+  .tabela-cartao .tabela thead {
+    display: none;
+  }
+
+  .tabela-cartao .tabela tbody tr {
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .tabela-cartao .tabela tbody td {
+    border-bottom: none;
+    padding: 5px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+  }
+
+  .tabela-cartao .tabela tbody td::before {
+    content: attr(data-rotulo);
+    font-size: 10.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--texto-tenue);
+    font-weight: 700;
+    text-align: left;
+    flex: none;
+  }
+
+  .tabela-cartao .celula-acoes {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .tabela-rolavel {
+    overflow-x: visible;
+  }
+
+  .chip-select {
+    max-width: 100%;
+  }
+
+  /* A barra vira duas linhas: marca em cima, navegacao inteira embaixo.
+     Antes era uma linha so com overflow-x e o ultimo item ficava cortado. */
   .sidebar {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     padding: 12px 16px;
-    gap: 12px;
-    overflow-x: auto;
+    gap: 10px;
   }
 
   .sidebar-marca {
@@ -935,7 +1084,15 @@ button,
 
   .sidebar-nav {
     flex-direction: row;
+    flex-wrap: wrap;
     padding: 0;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .sidebar-nav a {
+    padding: 8px 11px;
+    font-size: 12.5px;
   }
 
   .painel-conteudo {

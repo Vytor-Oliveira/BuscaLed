@@ -32,6 +32,28 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
  * volta 401. Erro HTTP vira ApiError com a mensagem que o backend mandou,
  * porque as rotas respondem `{ error: "..." }` em português.
  */
+export function registrar(
+  name: string,
+  email: string,
+  password: string
+): Promise<{ message: string }> {
+  return api<{ message: string }>("/auth/register", {
+    method: "POST",
+    body: { name, email, password },
+  });
+}
+
+export function pedirRedefinicao(email: string): Promise<{ message: string }> {
+  return api<{ message: string }>("/auth/forgot-password", { method: "POST", body: { email } });
+}
+
+export function redefinirSenha(token: string, password: string): Promise<{ message: string }> {
+  return api<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: { token, password },
+  });
+}
+
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
   let response: Response;
   try {

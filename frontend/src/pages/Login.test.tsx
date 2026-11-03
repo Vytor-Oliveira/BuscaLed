@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../auth/AuthContext";
 import Login from "./Login";
@@ -58,13 +58,91 @@ describe("Login", () => {
     expect(screen.getByRole("button", { name: "Entrar na minha conta" })).toBeInTheDocument();
   });
 
-  // O cadastro ainda não existe nesta tela; a aba fica visível mas inerte,
-  // em vez de prometer um caminho que não leva a lugar nenhum.
-  it("deixa a aba de cadastro desabilitada", async () => {
+  it("troca para a aba de cadastro e pede o nome", async () => {
     mockRotas(() => semSessao);
     montar();
 
-    expect(await screen.findByRole("tab", { name: "Criar conta" })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("tab", { name: "Criar conta" }));
+
+    expect(screen.getByLabelText("Nome")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar minha conta" })).toBeInTheDocument();
+  });
+
+  it("cadastra e volta para a aba de entrar avisando sobre a confirmação", async () => {
+    const chamadas = mockRotas((url) =>
+      url.includes("/auth/register")
+        ? {
+            ok: true,
+            status: 201,
+            corpo: { message: "Cadastro realizado. Confira seu e-mail para confirmar a conta." },
+          }
+        : semSessao
+    );
+
+    montar();
+    fireEvent.click(await screen.findByRole("tab", { name: "Criar conta" }));
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Carlos Silva" } });
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "c@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "senha-forte-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
+
+    expect(await screen.findByText(/Confira seu e-mail/)).toBeInTheDocument();
+    expect(chamadas).toContain("POST /auth/register");
+    // O cadastro nao loga: a conta so vale depois de confirmar o e-mail.
+    expect(screen.getByRole("button", { name: "Entrar na minha conta" })).toBeInTheDocument();
+    expect(screen.queryByText("Fila de Pedidos")).not.toBeInTheDocument();
+  });
+
+  it("pede o link de redefinição com o e-mail digitado", async () => {
+    const chamadas = mockRotas((url) =>
+      url.includes("/auth/forgot-password")
+        ? {
+            ok: true,
+            status: 200,
+            corpo: {
+              message: "Se houver uma conta com esse e-mail, enviamos o link de redefinição.",
+            },
+          }
+        : semSessao
+    );
+
+    montar();
+    fireEvent.change(await screen.findByLabelText("E-mail"), {
+      target: { value: "c@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Esqueci minha senha" }));
+
+    expect(await screen.findByText(/Se houver uma conta/)).toBeInTheDocument();
+    expect(chamadas).toContain("POST /auth/forgot-password");
+  });
+
+  it("cobra o e-mail antes de pedir o link", async () => {
+    const chamadas = mockRotas(() => semSessao);
+    montar();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Esqueci minha senha" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Informe seu e-mail");
+    expect(chamadas).not.toContain("POST /auth/forgot-password");
+  });
+
+  it("mostra o 409 de e-mail já cadastrado", async () => {
+    mockRotas((url) =>
+      url.includes("/auth/register")
+        ? { ok: false, status: 409, corpo: { error: "E-mail já cadastrado." } }
+        : semSessao
+    );
+
+    montar();
+    fireEvent.click(await screen.findByRole("tab", { name: "Criar conta" }));
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Carlos" } });
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "c@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "senha-forte-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("E-mail já cadastrado.");
+    });
   });
 
   it("envia as credenciais e leva para a fila ao entrar", async () => {

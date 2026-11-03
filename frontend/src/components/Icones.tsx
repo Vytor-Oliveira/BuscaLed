@@ -123,6 +123,22 @@ export function IconeDownload(p: Props) {
   );
 }
 
+export function IconeCarro(p: Props) {
+  return (
+    <Svg {...p}>
+      <path d="M5 17h14M5 17a2 2 0 1 1-2-2m2 2a2 2 0 1 0-2-2m16 2a2 2 0 1 0 2-2m-2 2a2 2 0 1 1 2-2M3 15v-4l2-5h14l2 5v4" />
+    </Svg>
+  );
+}
+
+export function IconeLixeira(p: Props) {
+  return (
+    <Svg {...p}>
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5" />
+    </Svg>
+  );
+}
+
 export function IconeMais(p: Props) {
   return (
     <Svg {...p}>

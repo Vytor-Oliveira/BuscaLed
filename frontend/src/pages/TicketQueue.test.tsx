@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import TicketQueue, { montarLinkWhatsApp, montarMensagem, numeroTicket } from "./TicketQueue";
 
 const ticketBase = {
@@ -75,11 +75,38 @@ describe("TicketQueue", () => {
 
     expect(await screen.findByText("cliente@example.com")).toBeInTheDocument();
     expect(screen.getByText("Novo")).toBeInTheDocument();
-    expect(screen.getByText(/Ultraled S14 H4/)).toBeInTheDocument();
+    // O nome tambem aparece como <option> do filtro de produto.
+    expect(screen.getByRole("cell", { name: /Ultraled S14 H4/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /WhatsApp de cliente@example.com/ })
     ).toHaveAttribute("href", expect.stringContaining("https://wa.me/5547999990000?text="));
+  });
+
+  // As opções saem do que está na fila, não do catálogo inteiro.
+  it("filtra por produto usando só o que existe na fila", async () => {
+    const outro = {
+      ...ticketBase,
+      id: "t-2",
+      items: [{ ...ticketBase.items[0], id: "i-2", ledModelName: "Fog H11" }],
+    };
+    mockFetch({ tickets: [ticketBase, outro] });
+    render(<TicketQueue />);
+
+    // O select existe desde o primeiro render; as opções só depois que os
+    // pedidos chegam — esperar o conteúdo evita asserção numa lista vazia.
+    await screen.findByRole("cell", { name: /Fog H11/ });
+    const filtro = screen.getByLabelText("Filtrar por produto") as HTMLSelectElement;
+    expect(Array.from(filtro.options).map((o) => o.text)).toEqual([
+      "Todos produtos",
+      "Fog H11",
+      "Ultraled S14 H4",
+    ]);
+
+    fireEvent.change(filtro, { target: { value: "Fog H11" } });
+
+    expect(screen.getByRole("cell", { name: /Fog H11/ })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: /Ultraled S14 H4/ })).not.toBeInTheDocument();
   });
 
   it("avisa quando não há pedido no filtro", async () => {

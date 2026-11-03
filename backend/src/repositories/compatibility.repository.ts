@@ -1,25 +1,35 @@
 import { PrismaClient } from "@prisma/client";
+import { resolveCanonicalMake } from "../services/compatibility/brand-alias";
+import { matchModelCandidates } from "../services/compatibility/model-match";
 import {
   CompatibilityRepository,
   CompatibleLed,
   VehicleFittingRecord,
   VehicleInfo,
+  VehicleModelCandidate,
   VehicleModelOption,
 } from "../services/compatibility/types";
 
 export class PrismaCompatibilityRepository implements CompatibilityRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findVehicleModel(vehicle: VehicleInfo): Promise<{ id: string } | null> {
-    return this.prisma.vehicleModel.findFirst({
-      where: {
-        make: vehicle.make,
-        model: vehicle.model,
-        yearStart: { lte: vehicle.year },
-        yearEnd: { gte: vehicle.year },
-      },
-      select: { id: true },
+  async findVehicleModelCandidates(vehicle: VehicleInfo): Promise<VehicleModelCandidate[]> {
+    // Carrega a marca inteira: os modelos de outros anos não são candidatos,
+    // mas são o que impede o match por início de token de casar errado.
+    const sameMake = await this.prisma.vehicleModel.findMany({
+      where: { make: resolveCanonicalMake(vehicle.make) },
+      select: { id: true, model: true, yearStart: true, yearEnd: true },
     });
+
+    const sameYear = sameMake.filter(
+      (row) => row.yearStart <= vehicle.year && row.yearEnd >= vehicle.year
+    );
+
+    return matchModelCandidates(
+      vehicle.model,
+      sameYear.map((row) => ({ id: row.id, model: row.model })),
+      sameMake.map((row) => row.model)
+    );
   }
 
   async listMakes(): Promise<string[]> {

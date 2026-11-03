@@ -3,7 +3,10 @@ import { prisma } from "../db/prisma";
 import { PrismaCompatibilityRepository } from "../repositories/compatibility.repository";
 import { PrismaSearchHistoryRepository } from "../repositories/search-history.repository";
 import { CompatibilityService } from "../services/compatibility/compatibility.service";
-import { VehicleNotFoundError } from "../services/compatibility/types";
+import {
+  AmbiguousVehicleModelError,
+  VehicleNotFoundError,
+} from "../services/compatibility/types";
 
 export const compatibilityRouter = Router();
 
@@ -53,6 +56,12 @@ compatibilityRouter.get("/", async (req, res, next) => {
   } catch (error) {
     if (error instanceof VehicleNotFoundError) {
       res.status(404).json({ error: error.message });
+      return;
+    }
+    // 409: o veiculo existe, mas as versoes divergem na iluminacao. Devolve os
+    // nomes para a tela oferecer a escolha em vez de arriscar o LED errado.
+    if (error instanceof AmbiguousVehicleModelError) {
+      res.status(409).json({ error: error.message, candidates: error.candidates });
       return;
     }
     next(error);

@@ -52,8 +52,16 @@ export interface VehicleModelOption {
   yearEnd: number;
 }
 
+// A placa devolve o nome cru da API ("NOVA SAVEIRO RB MBVS"), que raramente
+// bate letra a letra com a matriz. A busca volta todos os acabamentos que
+// casam pelo nome base, e o service decide o que fazer com eles.
+export interface VehicleModelCandidate {
+  id: string;
+  model: string;
+}
+
 export interface CompatibilityRepository {
-  findVehicleModel(vehicle: VehicleInfo): Promise<{ id: string } | null>;
+  findVehicleModelCandidates(vehicle: VehicleInfo): Promise<VehicleModelCandidate[]>;
   findFittings(vehicleModelId: string): Promise<VehicleFittingRecord[]>;
   findLedModelsBySocketCodes(socketCodes: string[]): Promise<CompatibleLed[]>;
   listMakes(): Promise<string[]>;
@@ -75,5 +83,21 @@ export class VehicleNotFoundError extends Error {
       `Nenhum modelo de veículo compatível cadastrado para ${vehicle.make} ${vehicle.model} ${vehicle.year}`
     );
     this.name = "VehicleNotFoundError";
+  }
+}
+
+/**
+ * Mais de uma versão do mesmo carro casou e a iluminação delas difere. Mostrar
+ * qualquer uma arriscaria indicar o LED errado, então o usuário escolhe.
+ */
+export class AmbiguousVehicleModelError extends Error {
+  readonly candidates: string[];
+
+  constructor(vehicle: VehicleInfo, candidates: string[]) {
+    super(
+      `Mais de uma versão de ${vehicle.make} ${vehicle.model} ${vehicle.year} tem iluminação diferente. Selecione a versão exata.`
+    );
+    this.name = "AmbiguousVehicleModelError";
+    this.candidates = candidates;
   }
 }

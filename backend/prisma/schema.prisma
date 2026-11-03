@@ -49,6 +49,11 @@ model User {
   emailVerifiedAt            DateTime?
   emailConfirmationToken     String?
   emailConfirmationExpiresAt DateTime?
+  // Recuperação de senha (RF02). Token de uso único e com validade curta —
+  // mesmo mecanismo da confirmação de e-mail, em campos separados para que
+  // pedir a redefinição não invalide uma confirmação ainda pendente.
+  passwordResetToken         String?
+  passwordResetExpiresAt     DateTime?
   createdAt                  DateTime  @default(now())
 
   reservations   Reservation[]

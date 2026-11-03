@@ -33,6 +33,21 @@ export class NodemailerEmailSender implements EmailSender {
     await this.send(email, "Confirme seu e-mail — BuscaLED", `Clique para confirmar: ${link}`);
   }
 
+  async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+    const baseUrl = process.env.FRONTEND_URL;
+    if (!baseUrl) {
+      throw new Error("FRONTEND_URL nao configurado — necessario para o link de redefinicao.");
+    }
+    const link = `${baseUrl}/redefinir-senha?token=${token}`;
+    await this.send(
+      email,
+      "Redefinicao de senha — BuscaLED",
+      `Para criar uma senha nova, acesse: ${link}
+
+Se nao foi voce que pediu, ignore este e-mail.`
+    );
+  }
+
   async sendLowStockAlert(to: string, info: StockAlertInfo): Promise<void> {
     await this.send(
       to,

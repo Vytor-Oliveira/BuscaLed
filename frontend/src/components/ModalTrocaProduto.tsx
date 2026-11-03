@@ -37,7 +37,7 @@ export function ModalTrocaProduto({
     }
     let ativo = true;
     setCarregando(true);
-    (async () => {
+    void (async () => {
       try {
         const { alternatives } = await listItemAlternatives(ticket.id, item.id);
         if (ativo) {
@@ -86,14 +86,12 @@ export function ModalTrocaProduto({
   }
 
   return (
-    <div className="modal-fundo" onClick={aoFechar}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-troca"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="modal-fundo">
+      {/* Botao de verdade em vez de div com onClick: ganha foco, Enter e
+          Espaco sem codigo extra, e dispensa o stopPropagation que so
+          existia porque o modal ficava dentro da area clicavel. */}
+      <button type="button" className="modal-fundo-fechar" aria-label="Fechar" onClick={aoFechar} />
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="titulo-troca">
         <div className="cartao-titulo">
           <h3 id="titulo-troca">Trocar produto</h3>
           <button type="button" className="botao-secundario" onClick={aoFechar}>

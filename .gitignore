@@ -50,6 +50,9 @@ backend/prisma/*.db
 
 # Planilha proprietária do parceiro Shocklight — nunca commitar (M3)
 backend/data/
+docs/*.xlsx
 
 # New Relic
 newrelic_agent.log
+.env.*
+!.env.example

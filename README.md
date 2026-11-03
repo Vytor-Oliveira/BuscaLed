@@ -110,6 +110,31 @@ Frontend (React + Vite) ── requisições REST ──▶ Backend API (Node.js
 | `tickets` / `ticket_items` | Pedido consolidado e seus itens; registra produto original e substituto quando editado |
 | `search_history` | Histórico analítico de buscas — sem dados de placa |
 
+### Faixas de ano da matriz de compatibilidade
+
+A coluna `ANO` da planilha da Shocklight usa cinco notações. O sinal aponta para o
+lado **aberto** da faixa; o ano fica sempre do lado fechado:
+
+| Na planilha | Significado | Gravado como |
+|---|---|---|
+| `AAAA` | só aquele ano | `yearStart = AAAA`, `yearEnd = AAAA` |
+| `AAAA > BBBB` | de AAAA a BBBB | `yearStart = AAAA`, `yearEnd = BBBB` |
+| `AAAA >` | a partir de AAAA (ainda em produção) | `yearStart = AAAA`, `yearEnd = 9999` |
+| `> AAAA` | até AAAA | `yearStart = 0`, `yearEnd = AAAA` |
+| `< AAAA` | até AAAA (mesmo que `> AAAA`) | `yearStart = 0`, `yearEnd = AAAA` |
+
+`0` e `9999` são sentinelas de faixa aberta, não anos. A busca casa por
+`yearStart <= ano && yearEnd >= ano`, então a sentinela abre um lado sem virar
+curinga: um carro 2022 não casa com `> 2016` (= até 2016).
+
+Os seletores de Marca/Modelo/Ano recortam a faixa na janela plausível (1950 até o
+ano-modelo seguinte) e mostram a faixa aberta como "até 1996" ou "2016 em diante",
+em vez de expor as sentinelas ao usuário.
+
+O importador não corrige nada em silêncio: valor fora dessas formas, ou ano fora de
+1950–2100, é recusado e sai no relatório com a linha e o valor bruto, para correção
+na planilha de origem. Sem `--allow-rejects`, a importação termina com código 1.
+
 ## Regras de negócio principais
 
 - A placa do veículo não é armazenada em nenhuma tabela, log ou cache (RN02)

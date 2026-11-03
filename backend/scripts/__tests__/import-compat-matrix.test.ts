@@ -29,6 +29,12 @@ const SAMPLE_ROWS: RawRow[] = [
     ano: "< 1996",
     posicoes: ["HB1", "HB1", null, null, null, null, null, null, null, null, null, null, null],
   },
+  {
+    montadora: "TESTEMARCA",
+    carro: "MODELO E",
+    ano: "2015 >",
+    posicoes: ["H11", "H11", null, null, null, null, null, null, null, null, null, null, null],
+  },
 ];
 
 describe("importCompatMatrix (integração real — Postgres, sem mocks)", () => {
@@ -43,15 +49,15 @@ describe("importCompatMatrix (integração real — Postgres, sem mocks)", () =>
   it("importa a planilha sintética corretamente, pulando células '-'/'LED' e separando compostas", async () => {
     const summary = await importCompatMatrix(SAMPLE_ROWS);
 
-    expect(summary.rowsRead).toBe(4);
-    expect(summary.uniqueVehicles).toBe(4);
+    expect(summary.rowsRead).toBe(5);
+    expect(summary.uniqueVehicles).toBe(5);
     expect(summary.yearParseErrors).toBe(0);
 
     const vehicles = await prisma.vehicleModel.findMany({
       where: { make: "TESTEMARCA" },
       include: { fittings: true },
     });
-    expect(vehicles).toHaveLength(4);
+    expect(vehicles).toHaveLength(5);
 
     // MODELO A 1.8 -> nome-base "MODELO" (corta em "A"? não, "A" não é numérico -- mantém "MODELO A")
     const modeloA = vehicles.find((v) => v.model === "MODELO A");
@@ -66,14 +72,20 @@ describe("importCompatMatrix (integração real — Postgres, sem mocks)", () =>
     // "LED" na posição LANTERNA_DIANTEIRA foi pulada (não vira fitting)
     expect(modeloB?.fittings.some((f) => f.position === "LANTERNA_DIANTEIRA")).toBe(false);
 
-    // MODELO C -> "> 2016" interpretado como a partir de 2016 (aberto)
+    // MODELO C -> "> 2016" é "até 2016" (aberto pra trás)
     const modeloC = vehicles.find((v) => v.model === "MODELO C");
-    expect(modeloC?.yearStart).toBe(2016);
-    expect(modeloC?.yearEnd).toBe(9999);
+    expect(modeloC?.yearStart).toBe(0);
+    expect(modeloC?.yearEnd).toBe(2016);
 
-    // MODELO D -> "< 1996" interpretado como até 1996 (aberto pra trás)
+    // MODELO D -> "< 1996" é a mesma coisa que "> 1996"
     const modeloD = vehicles.find((v) => v.model === "MODELO D");
     expect(modeloD?.yearStart).toBe(0);
     expect(modeloD?.yearEnd).toBe(1996);
+
+    // MODELO E -> "2015 >" é "a partir de 2015". Era este o formato que o
+    // parser antigo gravava como yearEnd 0, deixando o veículo inencontrável.
+    const modeloE = vehicles.find((v) => v.model === "MODELO E");
+    expect(modeloE?.yearStart).toBe(2015);
+    expect(modeloE?.yearEnd).toBe(9999);
   });
 });

@@ -1,7 +1,13 @@
 import { LightingPosition, Prisma, PrismaClient } from "@prisma/client";
 import fs from "fs";
 import path from "path";
-import { POSITION_COLUMNS, extractBaseModel, parsePositionCell, parseYearRange } from "./compat-matrix-parsers";
+import {
+  ESPACO_NAO_SEPARAVEL,
+  POSITION_COLUMNS,
+  extractBaseModel,
+  parsePositionCell,
+  parseYearRange,
+} from "./compat-matrix-parsers";
 
 const prisma = new PrismaClient();
 const BATCH_SIZE = 1000;
@@ -13,12 +19,35 @@ export interface RawRow {
   posicoes: Array<string | null>;
 }
 
+export interface RejectedRow {
+  line: number;
+  montadora: string;
+  carro: string;
+  ano: string;
+  motivo: string;
+}
+
 export interface ImportSummary {
   rowsRead: number;
   uniqueVehicles: number;
   skippedCells: number;
   yearParseErrors: number;
   fittingsInserted: number;
+  /** Quantas linhas por formato de ano, para conferir contra a planilha. */
+  yearFormats: Record<string, number>;
+  /** Linha a linha do que foi recusado, com o valor bruto para corrigir na origem. */
+  rejected: RejectedRow[];
+}
+
+// Classifica so para o relatorio; quem decide se a linha entra e o parser.
+function classificarFormatoAno(raw: string): string {
+  const v = raw.replace(ESPACO_NAO_SEPARAVEL, " ").trim();
+  if (/^\d{4}$/.test(v)) return "AAAA";
+  if (/^\d{4}\s*>\s*\d{4}$/.test(v)) return "AAAA > AAAA";
+  if (/^>\s*\d{4}$/.test(v)) return "> AAAA";
+  if (/^\d{4}\s*>$/.test(v)) return "AAAA >";
+  if (/^<\s*\d{4}$/.test(v)) return "< AAAA";
+  return "fora de formato";
 }
 
 interface VehicleKey {
@@ -43,14 +72,26 @@ export async function importCompatMatrix(rows: RawRow[]): Promise<ImportSummary>
   const fittingsByVehicleKey = new Map<string, Array<{ position: LightingPosition; socketCode: string }>>();
 
   let skippedCells = 0;
-  let yearParseErrors = 0;
+  const rejected: RejectedRow[] = [];
+  const yearFormats: Record<string, number> = {};
 
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
+    yearFormats[classificarFormatoAno(row.ano)] =
+      (yearFormats[classificarFormatoAno(row.ano)] ?? 0) + 1;
+
     let yearRange: { yearStart: number; yearEnd: number };
     try {
       yearRange = parseYearRange(row.ano);
-    } catch {
-      yearParseErrors += 1;
+    } catch (error) {
+      // Registra o suficiente pra achar a linha na planilha e corrigir na
+      // origem — adivinhar aqui gravaria veiculo que nunca casa com busca.
+      rejected.push({
+        line: index + 1,
+        montadora: row.montadora,
+        carro: row.carro,
+        ano: row.ano,
+        motivo: error instanceof Error ? error.message : String(error),
+      });
       continue;
     }
 
@@ -155,8 +196,10 @@ export async function importCompatMatrix(rows: RawRow[]): Promise<ImportSummary>
     rowsRead: rows.length,
     uniqueVehicles: vehiclesByKey.size,
     skippedCells,
-    yearParseErrors,
+    yearParseErrors: rejected.length,
     fittingsInserted,
+    yearFormats,
+    rejected,
   };
 }
 
@@ -174,21 +217,43 @@ async function main(): Promise<void> {
     return;
   }
 
+  const permitirRejeitadas = process.argv.includes("--allow-rejects");
+
   const rows: RawRow[] = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
   const summary = await importCompatMatrix(rows);
 
-  // eslint-disable-next-line no-console
-  console.log(`Linhas lidas: ${summary.rowsRead}`);
-  // eslint-disable-next-line no-console
-  console.log(`Veículos únicos (após deduplicação): ${summary.uniqueVehicles}`);
-  // eslint-disable-next-line no-console
-  console.log(`Células puladas ("-" ou "LED"): ${summary.skippedCells}`);
-  // eslint-disable-next-line no-console
-  console.log(`Linhas com erro de formato de ano: ${summary.yearParseErrors}`);
-  // eslint-disable-next-line no-console
-  console.log(`Fittings inseridos: ${summary.fittingsInserted}`);
-  // eslint-disable-next-line no-console
-  console.log("Importação concluída.");
+  const log = (linha: string): void => {
+    // eslint-disable-next-line no-console
+    console.log(linha);
+  };
+
+  log("=== Relatório de importação ===");
+  log(`Linhas lidas: ${summary.rowsRead}`);
+  log("Formatos de ano encontrados:");
+  for (const [formato, total] of Object.entries(summary.yearFormats).sort((a, b) => b[1] - a[1])) {
+    log(`  ${formato.padEnd(18)} ${total}`);
+  }
+  log(`Veículos únicos gravados (após deduplicação): ${summary.uniqueVehicles}`);
+  log(`Fittings inseridos: ${summary.fittingsInserted}`);
+  log(`Células puladas ("-" ou "LED"): ${summary.skippedCells}`);
+  log(`Linhas rejeitadas: ${summary.rejected.length}`);
+
+  for (const r of summary.rejected) {
+    log(`  linha ${r.line} | ${r.montadora} | ${r.carro} | ano="${r.ano}"`);
+    log(`    ${r.motivo}`);
+  }
+
+  if (summary.rejected.length > 0 && !permitirRejeitadas) {
+    log("");
+    log(
+      "Importação terminou com linhas rejeitadas. Corrija a planilha na origem " +
+        "ou rode de novo com --allow-rejects para aceitar a importação parcial."
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  log("Importação concluída.");
 }
 
 if (require.main === module) {

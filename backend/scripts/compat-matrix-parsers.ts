@@ -39,52 +39,88 @@ export const POSITION_COLUMNS: LightingPosition[] = [
 const OPEN_ENDED_UPPER_YEAR = 9999;
 const OPEN_ENDED_LOWER_YEAR = 0;
 
+// Faixa plausível para um veículo de rua. Serve para pegar erro de digitação
+// da planilha (ex: "2012 > 215") que, sem isso, vira ano válido pro Number().
+const MIN_YEAR = 1950;
+const MAX_YEAR = 2100;
+
 export class InvalidYearRangeError extends Error {
-  constructor(raw: string) {
-    super(`Formato de ano não reconhecido: "${raw}"`);
+  constructor(raw: string, motivo: string) {
+    super(`Formato de ano inválido: "${raw}" — ${motivo}`);
     this.name = "InvalidYearRangeError";
   }
 }
 
+// Regex ancorada por formato: só casa a forma inteira, então "2012 > 215" não
+// entra por nenhuma delas. O parse antigo fatiava no ">" e deixava Number()
+// decidir, e Number("") é 0 — era assim que "2015 >" virava yearEnd 0.
+// A planilha costuma trazer espaço não separável colado no número.
+export const ESPACO_NAO_SEPARAVEL = new RegExp(String.fromCharCode(0x00a0), "g");
+
+const FORMATO_ANO_UNICO = /^(\d{4})$/;
+const FORMATO_INTERVALO = /^(\d{4})\s*>\s*(\d{4})$/;
+const FORMATO_A_PARTIR = /^(\d{4})\s*>$/;
+const FORMATO_ATE_MAIOR = /^>\s*(\d{4})$/;
+const FORMATO_ATE_MENOR = /^<\s*(\d{4})$/;
+
+function anoValido(raw: string, valor: string): number {
+  const ano = Number(valor);
+  if (ano < MIN_YEAR || ano > MAX_YEAR) {
+    throw new InvalidYearRangeError(raw, `ano ${ano} fora da faixa ${MIN_YEAR}–${MAX_YEAR}`);
+  }
+  return ano;
+}
+
 /**
- * Trata os 4 formatos de ano encontrados na planilha real:
- * "AAAA > AAAA", "AAAA", "> AAAA", "< AAAA".
+ * Trata os 5 formatos de ano da planilha real. A notação é simétrica: o sinal
+ * aponta para o lado aberto da faixa e o ano fica sempre do lado fechado.
  *
- * ATENÇÃO — suposição não validada com o parceiro (RFC Seção 7.2): "> AAAA"
- * é interpretado como "a partir de AAAA" (veículo ainda em produção — ex:
- * "XC 90 EXCELLENCE... > 2016"), não "até AAAA". Precisa confirmar com a
- * Shocklight antes de considerar definitivo.
+ *   "AAAA"         ano único         -> { AAAA, AAAA }
+ *   "AAAA > BBBB"  intervalo fechado -> { AAAA, BBBB }
+ *   "AAAA >"       a partir de AAAA  -> { AAAA, 9999 }
+ *   "> AAAA"       até AAAA          -> { 0, AAAA }
+ *   "< AAAA"       até AAAA          -> { 0, AAAA }
+ *
+ * Semântica confirmada com o parceiro (RFC Seção 7.2).
+ *
+ * Nada é corrigido em silêncio: valor fora de forma ou fora da faixa de anos
+ * lança, para a linha aparecer no relatório de importação em vez de virar
+ * veículo que nunca casa com busca nenhuma.
  */
 export function parseYearRange(raw: string): { yearStart: number; yearEnd: number } {
-  const value = raw.trim();
+  const value = raw.replace(ESPACO_NAO_SEPARAVEL, " ").trim();
 
-  if (value.includes(">")) {
-    const [left, right] = value.split(">").map((part) => part.trim());
-    if (left === "") {
-      return { yearStart: Number(right), yearEnd: OPEN_ENDED_UPPER_YEAR };
-    }
-    const yearStart = Number(left);
-    const yearEnd = Number(right);
-    if (Number.isNaN(yearStart) || Number.isNaN(yearEnd)) {
-      throw new InvalidYearRangeError(raw);
+  if (value === "") {
+    throw new InvalidYearRangeError(raw, "valor vazio");
+  }
+
+  const unico = FORMATO_ANO_UNICO.exec(value);
+  if (unico) {
+    const ano = anoValido(raw, unico[1]);
+    return { yearStart: ano, yearEnd: ano };
+  }
+
+  const intervalo = FORMATO_INTERVALO.exec(value);
+  if (intervalo) {
+    const yearStart = anoValido(raw, intervalo[1]);
+    const yearEnd = anoValido(raw, intervalo[2]);
+    if (yearStart > yearEnd) {
+      throw new InvalidYearRangeError(raw, `inicio ${yearStart} maior que fim ${yearEnd}`);
     }
     return { yearStart, yearEnd };
   }
 
-  if (value.includes("<")) {
-    const right = value.replace("<", "").trim();
-    const yearEnd = Number(right);
-    if (Number.isNaN(yearEnd)) {
-      throw new InvalidYearRangeError(raw);
-    }
-    return { yearStart: OPEN_ENDED_LOWER_YEAR, yearEnd };
+  const aPartir = FORMATO_A_PARTIR.exec(value);
+  if (aPartir) {
+    return { yearStart: anoValido(raw, aPartir[1]), yearEnd: OPEN_ENDED_UPPER_YEAR };
   }
 
-  const year = Number(value);
-  if (Number.isNaN(year)) {
-    throw new InvalidYearRangeError(raw);
+  const ate = FORMATO_ATE_MAIOR.exec(value) ?? FORMATO_ATE_MENOR.exec(value);
+  if (ate) {
+    return { yearStart: OPEN_ENDED_LOWER_YEAR, yearEnd: anoValido(raw, ate[1]) };
   }
-  return { yearStart: year, yearEnd: year };
+
+  throw new InvalidYearRangeError(raw, "nao corresponde a nenhum formato conhecido");
 }
 
 /**

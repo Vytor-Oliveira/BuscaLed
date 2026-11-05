@@ -59,7 +59,9 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
 
     const token = await getConfirmationToken(email);
     const confirmRes = await request(app).get(`/auth/confirm?token=${token}`);
-    expect(confirmRes.status).toBe(200);
+    // Link de e-mail: tem que levar a pessoa pra tela de login, nao devolver JSON.
+    expect(confirmRes.status).toBe(302);
+    expect(confirmRes.headers.location).toMatch(/\/login\?confirmacao=ok$/);
 
     const loginRes = await request(app)
       .post("/auth/login")
@@ -71,6 +73,18 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
     expect(cookies.some((c) => c.startsWith("refresh_token="))).toBe(true);
     expect(cookies.every((c) => c.includes("HttpOnly"))).toBe(true);
   }, 15000);
+
+  // Token errado ou ausente tambem cai na tela de login, com o motivo na query:
+  // quem clica num link velho precisa de uma pagina, nao de um erro cru.
+  it("manda token inválido e token ausente para a tela de login", async () => {
+    const invalido = await request(app).get("/auth/confirm?token=nao-existe");
+    expect(invalido.status).toBe(302);
+    expect(invalido.headers.location).toMatch(/\/login\?confirmacao=invalida$/);
+
+    const ausente = await request(app).get("/auth/confirm");
+    expect(ausente.status).toBe(302);
+    expect(ausente.headers.location).toMatch(/\/login\?confirmacao=invalida$/);
+  });
 
   it("trata o e-mail sem diferenciar maiúsculas/minúsculas", async () => {
     const email = uniqueEmail();

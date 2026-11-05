@@ -135,6 +135,7 @@ export class PrismaTicketRepository implements TicketRepository {
       ledModelId: item.ledModelId,
       originalLedModelId: item.originalLedModelId,
       socketCode: item.ledModel.socketCode,
+      quantity: item.quantity,
     };
   }
 
@@ -170,9 +171,12 @@ export class PrismaTicketRepository implements TicketRepository {
     });
   }
 
-  async findInStockBySocket(socketCode: string): Promise<TicketItemAlternative[]> {
+  async findInStockBySocket(
+    socketCode: string,
+    minQty: number
+  ): Promise<TicketItemAlternative[]> {
     return this.prisma.ledModel.findMany({
-      where: { socketCode, stockQty: { gt: 0 } },
+      where: { socketCode, stockQty: { gte: minQty } },
       select: { id: true, sku: true, name: true, socketCode: true, stockQty: true },
       orderBy: { stockQty: "desc" },
     });

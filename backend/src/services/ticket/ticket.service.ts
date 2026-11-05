@@ -99,7 +99,10 @@ export class TicketService {
       throw new TicketItemNotFoundError(itemId);
     }
 
-    const candidatos = await this.repository.findInStockBySocket(item.socketCode);
+    const candidatos = await this.repository.findInStockBySocket(
+      item.socketCode,
+      item.quantity
+    );
     return candidatos.filter((candidato) => candidato.id !== item.ledModelId);
   }
 

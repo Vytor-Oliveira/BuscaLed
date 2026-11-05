@@ -615,6 +615,52 @@
   font-size: 14px;
 }
 
+.vitrine-sem-produto {
+  margin: 8px 0 26px;
+  padding: 18px 20px;
+  background: var(--fundo);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio);
+}
+
+.vitrine-sem-produto h3 {
+  font-family: var(--sans);
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.vitrine-sem-produto > p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.vitrine-sem-produto ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.vitrine-sem-produto li {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-pequeno);
+  padding: 10px 12px;
+}
+
+.vitrine-sem-produto li strong {
+  display: block;
+  font-size: 13px;
+}
+
+.vitrine-sem-produto li small {
+  color: var(--texto-tenue);
+  font-size: 12px;
+}
+
 /* ============ Confirmacao (Tela 5) ============ */
 
 .grade-confirmacao {

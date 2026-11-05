@@ -62,9 +62,10 @@ export default function Vitrine() {
     };
   }, [make, model, year]);
 
-  // Posição sem nenhum produto cadastrado não vira cartão: não há o que
-  // escolher, e mostrar vazio só confunde.
+  // Posição sem nenhum produto cadastrado não vira cartão de compra: não há o
+  // que escolher. Mas o encaixe é informação útil — vai listado no fim.
   const comProduto = useMemo(() => posicoes.filter((p) => p.models.length > 0), [posicoes]);
+  const semProduto = useMemo(() => posicoes.filter((p) => p.models.length === 0), [posicoes]);
   const totalModelos = useMemo(
     () => comProduto.reduce((soma, p) => soma + p.models.length, 0),
     [comProduto]
@@ -102,10 +103,12 @@ export default function Vitrine() {
           <strong>
             {make} {model} {year || ""}
           </strong>
+          {/* "0 LEDs compatíveis" soava como "este carro não aceita LED". O que
+              o número zero diz de fato é que o catálogo não cobre os encaixes. */}
           {!carregando && !erro && (
-            <span className="selo selo-concluido">
-              {totalModelos} LED{totalModelos === 1 ? "" : "s"} compatíve
-              {totalModelos === 1 ? "l" : "is"}
+            <span className={totalModelos > 0 ? "selo selo-concluido" : "selo selo-pendente"}>
+              {posicoes.length} encaixe{posicoes.length === 1 ? "" : "s"} · {totalModelos} LED
+              {totalModelos === 1 ? "" : "s"} disponíve{totalModelos === 1 ? "l" : "is"}
             </span>
           )}
         </div>
@@ -118,9 +121,12 @@ export default function Vitrine() {
 
         {carregando && <p className="estado-carregando">Buscando LEDs compatíveis…</p>}
 
-        {!carregando && !erro && comProduto.length === 0 && (
+        {/* Duas situações diferentes que antes caíam na mesma frase: não saber
+            nada do veículo, e saber os encaixes sem ter produto pra eles. */}
+        {!carregando && !erro && posicoes.length === 0 && (
           <p className="estado-vazio">
-            Nenhum LED cadastrado para este veículo ainda. O representante foi avisado da busca.
+            Ainda não temos a ficha de iluminação deste veículo. Sua busca entrou no painel de
+            demanda.
           </p>
         )}
 
@@ -200,6 +206,28 @@ export default function Vitrine() {
               </section>
             ))}
           </>
+        )}
+
+        {!carregando && !erro && semProduto.length > 0 && (
+          <section className="vitrine-sem-produto">
+            <h3>
+              {comProduto.length > 0
+                ? "Outros encaixes deste veículo"
+                : `Conhecemos os ${semProduto.length} encaixes deste veículo`}
+            </h3>
+            <p>
+              Ainda não temos LED no catálogo para estas posições. Sua busca entrou no painel de
+              demanda — é por ele que o catálogo cresce.
+            </p>
+            <ul>
+              {semProduto.map((posicao) => (
+                <li key={posicao.position}>
+                  <strong>{ROTULO_POSICAO[posicao.position]}</strong>
+                  <small>{posicao.socketCodes.join(" · ")}</small>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </main>
 

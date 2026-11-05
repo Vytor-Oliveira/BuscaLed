@@ -58,15 +58,51 @@ describe("Vitrine", () => {
     expect(screen.getByText("Fog H11")).toBeInTheDocument();
   });
 
-  // RF06 — posição sem produto cadastrado não tem o que escolher.
-  it("omite posição que não tem nenhum produto no catálogo", async () => {
+  // RF06 — posição sem produto cadastrado não tem o que escolher. Mas antes ela
+  // desaparecia inteira, e o cliente nem ficava sabendo que o carro tem W5W na placa.
+  it("lista a posição sem produto como encaixe, sem virar cartão de compra", async () => {
     mockApi((url) =>
       url.includes("/compatibility") ? { ok: true, status: 200, corpo: { positions: posicoes } } : semSessao
     );
     montar();
 
     await screen.findByText("Farol baixo");
-    expect(screen.queryByText("Placa")).not.toBeInTheDocument();
+    const encaixes = screen.getByRole("heading", { name: /Outros encaixes/ }).closest("section");
+    expect(encaixes).toHaveTextContent("Placa");
+    expect(encaixes).toHaveTextContent("W5W");
+    expect(encaixes?.querySelectorAll("button")).toHaveLength(0);
+  });
+
+  // O caso do BMW Z4 Roadster 2004: veículo na matriz, encaixes conhecidos,
+  // catálogo sem nenhum produto. Antes dizia "0 LEDs compatíveis" e mais nada,
+  // que soa como "este carro não aceita LED" — e os soquetes eram descartados.
+  it("mostra os encaixes quando nenhuma posição tem produto", async () => {
+    const soEncaixes = [
+      { position: "FAROL_BAIXO", socketCodes: ["D1S"], models: [] },
+      { position: "NEBLINA", socketCodes: ["H8"], models: [] },
+    ];
+    mockApi((url) =>
+      url.includes("/compatibility")
+        ? { ok: true, status: 200, corpo: { positions: soEncaixes } }
+        : semSessao
+    );
+    montar();
+
+    expect(await screen.findByText("D1S")).toBeInTheDocument();
+    expect(screen.getByText("H8")).toBeInTheDocument();
+    expect(screen.getByText(/2 encaixes · 0 LEDs disponíveis/)).toBeInTheDocument();
+    expect(screen.queryByText(/Ainda não temos a ficha/)).not.toBeInTheDocument();
+  });
+
+  // Só este caso é "não sei nada deste veículo" — e ele não pode usar a mesma
+  // frase do caso acima, onde o sistema conhece o carro e falta produto.
+  it("diz que não tem a ficha quando a matriz não devolve nenhuma posição", async () => {
+    mockApi((url) =>
+      url.includes("/compatibility") ? { ok: true, status: 200, corpo: { positions: [] } } : semSessao
+    );
+    montar();
+
+    expect(await screen.findByText(/Ainda não temos a ficha/)).toBeInTheDocument();
   });
 
   // A foto é decorativa (o nome está no cartão), por isso alt="" e a busca

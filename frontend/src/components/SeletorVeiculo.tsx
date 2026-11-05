@@ -45,7 +45,7 @@ export function SeletorVeiculo({
 
   useEffect(() => {
     let ativo = true;
-    (async () => {
+    void (async () => {
       try {
         const { makes } = await listarMarcas();
         if (ativo) {
@@ -74,7 +74,7 @@ export function SeletorVeiculo({
 
     let ativo = true;
     setCarregando(true);
-    (async () => {
+    void (async () => {
       try {
         const { models } = await listarModelos(marca);
         if (ativo) {

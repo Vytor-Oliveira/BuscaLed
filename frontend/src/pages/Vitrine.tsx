@@ -37,7 +37,7 @@ export default function Vitrine() {
     let ativo = true;
     setCarregando(true);
     setErro("");
-    (async () => {
+    void (async () => {
       try {
         const { positions } = await buscarCompatibilidade(make, model, year);
         if (ativo) {

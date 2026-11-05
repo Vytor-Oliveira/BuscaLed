@@ -1,5 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import TicketQueue, { montarLinkWhatsApp, montarMensagem, numeroTicket } from "./TicketQueue";
+import TicketQueue, {
+  montarLinkWhatsApp,
+  montarMensagem,
+  numeroTicket,
+  paraCsv,
+} from "./TicketQueue";
 
 const ticketBase = {
   id: "t-1",
@@ -68,6 +73,32 @@ describe("montarMensagem", () => {
   });
 });
 
+describe("paraCsv", () => {
+  // Regressão: telefone, e-mail e nome de produto vêm de fora, e o Excel
+  // avalia célula que começa com = + - @ como fórmula.
+  it.each(["=1+1", "+1", "-1", "@SUM(A1)"])(
+    "prefixa %s com apóstrofo para o Excel ler como texto",
+    (perigoso) => {
+      const csv = paraCsv([{ ...ticketBase, customerPhone: perigoso }]);
+      expect(csv).toContain(`"'${perigoso}"`);
+    }
+  );
+
+  it("não prefixa campo comum", () => {
+    const csv = paraCsv([ticketBase]);
+    expect(csv).toContain('"47999990000"');
+  });
+
+  it("separa com ; porque o Excel em pt-BR abriria , em coluna única", () => {
+    const csv = paraCsv([ticketBase]);
+    expect(csv.split("\n")[0]).toBe("# Ticket;Cliente;Telefone;Produtos;Data;Status");
+  });
+
+  it("mantém aspas internas escapadas", () => {
+    const csv = paraCsv([{ ...ticketBase, userEmail: 'a"b@example.com' }]);
+    expect(csv).toContain('"a""b@example.com"');
+  });
+});
 describe("TicketQueue", () => {
   it("lista os pedidos devolvidos pela API com o status traduzido", async () => {
     mockFetch({ tickets: [ticketBase] });

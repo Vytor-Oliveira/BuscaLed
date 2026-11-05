@@ -71,8 +71,12 @@ function formatarData(iso: string): string {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function paraCsv(tickets: Ticket[]): string {
-  const campo = (v: string) => `"${v.replace(/"/g, '""')}"`;
+export function paraCsv(tickets: Ticket[]): string {
+  // As aspas resolvem separador e quebra de linha, mas nao impedem o Excel de
+  // avaliar celula que comeca com = + - @ como formula. Telefone, e-mail e nome
+  // de produto vem de fora: o apostrofo forca leitura como texto.
+  const campo = (v: string) =>
+    `"${(/^[=+\-@\t\r]/.test(v) ? `'${v}` : v).replace(/"/g, '""')}"`;
   const linhas = tickets.map((t) =>
     [
       numeroTicket(t.id),
@@ -83,9 +87,10 @@ function paraCsv(tickets: Ticket[]): string {
       ROTULO_STATUS[t.status],
     ]
       .map(campo)
-      .join(",")
+      .join(";")
   );
-  return ["# Ticket,Cliente,Telefone,Produtos,Data,Status", ...linhas].join("\n");
+  // O Excel em pt-BR usa ; como separador de lista; com , tudo cai na coluna A.
+  return ["# Ticket;Cliente;Telefone;Produtos;Data;Status", ...linhas].join("\n");
 }
 
 export default function TicketQueue() {
@@ -142,7 +147,10 @@ export default function TicketQueue() {
   }
 
   function exportarCsv() {
-    const blob = new Blob([paraCsv(visiveis)], { type: "text/csv;charset=utf-8" });
+    // Sem o BOM o Excel assume ANSI e os acentos chegam quebrados.
+    const blob = new Blob(["\uFEFF", paraCsv(visiveis)], {
+      type: "text/csv;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

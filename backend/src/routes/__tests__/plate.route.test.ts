@@ -31,6 +31,8 @@ async function registerAndLogin(): Promise<{ cookies: string[]; email: string }>
 /**
  * Nenhum destes testes chega na PuxaPlaca: o cache e a cota resolvem antes.
  * A consulta paga de verdade está no vehicle.route.test.ts, desligada por padrão.
+ * Por isso precisam passar com ou sem APIPLACAS_TOKEN no ambiente: o CI não tem
+ * o token, e cache e cota não dependem dele.
  */
 describe("Plate routes (integração real — Postgres + Redis, sem mocks)", () => {
   const createdEmails: string[] = [];

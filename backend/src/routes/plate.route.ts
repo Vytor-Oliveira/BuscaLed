@@ -14,13 +14,6 @@ export const plateRouter = Router();
 plateRouter.use(requireAuth);
 
 plateRouter.get("/:placa", async (req, res, next) => {
-  if (!plateLookupService) {
-    res.status(503).json({
-      error: "Consulta de placa indisponível: APIPLACAS_TOKEN não configurado.",
-    });
-    return;
-  }
-
   try {
     const vehicle = await plateLookupService.resolveForUser(req.user!.id, req.params.placa);
     res.json(vehicle);

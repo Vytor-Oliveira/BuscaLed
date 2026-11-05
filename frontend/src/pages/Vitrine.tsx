@@ -157,8 +157,20 @@ export default function Vitrine() {
                         key={led.ledModelId}
                         className={escolhido ? "cartao-led cartao-led-ativo" : "cartao-led"}
                       >
-                        <span className="cartao-led-imagem">
-                          <IconeLampada tamanho={26} />
+                        {/* Sem foto o cartao mantem o icone: produto novo entra
+                            no catalogo antes da imagem existir. */}
+                        <span
+                          className={
+                            led.imageUrl
+                              ? "cartao-led-imagem cartao-led-imagem-foto"
+                              : "cartao-led-imagem"
+                          }
+                        >
+                          {led.imageUrl ? (
+                            <img src={led.imageUrl} alt="" loading="lazy" />
+                          ) : (
+                            <IconeLampada tamanho={26} />
+                          )}
                         </span>
                         <strong>{led.name}</strong>
                         <small>

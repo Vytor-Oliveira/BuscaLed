@@ -29,6 +29,8 @@ export interface CompatibleLed {
   sku: string;
   name: string;
   socketCode: string;
+  // Nulo enquanto o produto não tem foto — a vitrine mostra o ícone.
+  imageUrl: string | null;
   inStock: boolean;
 }
 

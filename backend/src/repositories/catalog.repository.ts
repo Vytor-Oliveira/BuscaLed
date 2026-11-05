@@ -16,6 +16,7 @@ function toLedModelRecord(model: LedModel): LedModelRecord {
     sku: model.sku,
     name: model.name,
     socketCode: model.socketCode,
+    imageUrl: model.imageUrl,
     stockQty: model.stockQty,
     stockMin: model.stockMin,
   };

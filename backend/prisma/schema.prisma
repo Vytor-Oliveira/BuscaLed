@@ -119,6 +119,9 @@ model LedModel {
   name        String
   description String?
   socketCode  String
+  // Foto do produto servida pelo proprio site (frontend/public/leds).
+  // Nula enquanto nao houver imagem: o cartao cai no icone generico.
+  imageUrl    String?
   stockQty    Int     @default(0)
   stockMin    Int     @default(5)
 

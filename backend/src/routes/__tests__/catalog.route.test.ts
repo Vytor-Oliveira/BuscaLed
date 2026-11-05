@@ -116,12 +116,24 @@ describe("Catalog routes (integração real — Postgres, sem mocks)", () => {
     expect(criado.status).toBe(201);
     createdLedModelIds.push(criado.body.ledModel.id);
 
+    // A foto nao entra pelo POST: e o seed que preenche. O painel precisa
+    // dela no retorno da listagem.
+    await prisma.ledModel.update({
+      where: { id: criado.body.ledModel.id },
+      data: { imageUrl: "/leds/TESTE-LISTA.jpg" },
+    });
+
     const lista = await request(app).get("/catalog/led-models").set("Cookie", cookies);
     expect(lista.status).toBe(200);
 
     const encontrado = lista.body.ledModels.find((m: { sku: string }) => m.sku === sku);
     // A UI de estoque do painel depende desses dois campos no retorno.
-    expect(encontrado).toMatchObject({ sku, stockQty: 7, stockMin: 3 });
+    expect(encontrado).toMatchObject({
+      sku,
+      stockQty: 7,
+      stockMin: 3,
+      imageUrl: "/leds/TESTE-LISTA.jpg",
+    });
 
     const semLogin = await request(app).get("/catalog/led-models");
     expect(semLogin.status).toBe(401);

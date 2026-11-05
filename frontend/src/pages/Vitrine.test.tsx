@@ -8,15 +8,15 @@ const posicoes = [
     position: "FAROL_BAIXO",
     socketCodes: ["H4"],
     models: [
-      { ledModelId: "led-1", sku: "SHK-S14-H4", name: "Headlight S14", socketCode: "H4", inStock: true },
-      { ledModelId: "led-2", sku: "SHK-S16-H4", name: "Ultraled S16", socketCode: "H4", inStock: false },
+      { ledModelId: "led-1", sku: "SHK-S14-H4", name: "Headlight S14", socketCode: "H4", imageUrl: "/leds/SLL-140004.jpg", inStock: true },
+      { ledModelId: "led-2", sku: "SHK-S16-H4", name: "Ultraled S16", socketCode: "H4", imageUrl: "/leds/SLL-160004.jpg", inStock: false },
     ],
   },
   {
     position: "NEBLINA",
     socketCodes: ["H11"],
     models: [
-      { ledModelId: "led-3", sku: "SHK-H11", name: "Fog H11", socketCode: "H11", inStock: true },
+      { ledModelId: "led-3", sku: "SHK-H11", name: "Fog H11", socketCode: "H11", imageUrl: null, inStock: true },
     ],
   },
   // Posição sem produto no catálogo: não deve virar cartão.
@@ -67,6 +67,22 @@ describe("Vitrine", () => {
 
     await screen.findByText("Farol baixo");
     expect(screen.queryByText("Placa")).not.toBeInTheDocument();
+  });
+
+  // A foto é decorativa (o nome está no cartão), por isso alt="" e a busca
+  // pelo src: produto sem imagem não pode ficar com a caixa vazia.
+  it("mostra a foto do produto quando existe e o ícone quando não", async () => {
+    mockApi((url) =>
+      url.includes("/compatibility") ? { ok: true, status: 200, corpo: { positions: posicoes } } : semSessao
+    );
+    const { container } = montar();
+
+    await screen.findByText("Headlight S14");
+    expect(container.querySelector('img[src="/leds/SLL-140004.jpg"]')).toBeInTheDocument();
+
+    const semFoto = screen.getByText("Fog H11").closest("li");
+    expect(semFoto?.querySelector("img")).toBeNull();
+    expect(semFoto?.querySelector("svg")).toBeInTheDocument();
   });
 
   it("não deixa escolher modelo sem estoque", async () => {

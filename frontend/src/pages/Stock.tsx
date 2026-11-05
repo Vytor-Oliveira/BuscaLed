@@ -223,8 +223,16 @@ export default function Stock() {
                 situacao === "disponivel" ? "produto-linha" : `produto-linha produto-${situacao}`
               }
             >
-              <span className="produto-icone">
-                <IconeLampada tamanho={20} />
+              <span
+                className={
+                  produto.imageUrl ? "produto-icone produto-icone-foto" : "produto-icone"
+                }
+              >
+                {produto.imageUrl ? (
+                  <img src={produto.imageUrl} alt="" loading="lazy" />
+                ) : (
+                  <IconeLampada tamanho={20} />
+                )}
               </span>
 
               <div>

@@ -5,6 +5,7 @@ export interface LedModel {
   sku: string;
   name: string;
   socketCode: string;
+  imageUrl: string | null;
   stockQty: number;
   stockMin: number;
 }

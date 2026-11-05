@@ -79,6 +79,7 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
         sku: `TESTE-LED-${runId}`,
         name: "LED de teste soquete A",
         socketCode: socketA,
+        imageUrl: "/leds/TESTE-FOTO.jpg",
         stockQty: 5,
       },
     });
@@ -95,6 +96,9 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
     expect(farolBaixo.socketCodes.sort()).toEqual([socketA, socketB].sort());
     expect(farolBaixo.models).toHaveLength(1);
     expect(farolBaixo.models[0].sku).toBe(ledModel.sku);
+    // O tipo obriga o campo a existir, mas não obriga a trazer o valor: sem
+    // esta asserção, um imageUrl zerado no select deixa a vitrine sem foto.
+    expect(farolBaixo.models[0].imageUrl).toBe("/leds/TESTE-FOTO.jpg");
 
     const piscaDianteiro = positions.find(
       (p: { position: string }) => p.position === "PISCA_DIANTEIRO"

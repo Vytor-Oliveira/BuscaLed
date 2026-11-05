@@ -534,13 +534,27 @@
 }
 
 .cartao-led-imagem {
-  height: 86px;
+  --altura-foto: 110px;
+  height: var(--altura-foto);
   border-radius: var(--raio-pequeno);
   background: var(--fundo);
   color: var(--texto-tenue);
   display: grid;
   place-items: center;
   margin-bottom: 4px;
+}
+
+/* As fotos da Shocklight ja vem em fundo branco: a caixa acompanha, senao
+   sobra uma moldura cinza em volta do recorte do produto. */
+.cartao-led-imagem-foto {
+  background: #ffffff;
+}
+
+.cartao-led-imagem img {
+  display: block;
+  max-width: 100%;
+  max-height: var(--altura-foto);
+  object-fit: contain;
 }
 
 .cartao-led-ativo .cartao-led-imagem {
@@ -557,8 +571,11 @@
   font-size: 12px;
 }
 
+/* auto, não 6px: a grade iguala a altura dos cartões, e o cartão esgotado tem
+   um selo a mais. Sem isso a sobra cai embaixo do botão do cartão vizinho e os
+   dois botões ficam em alturas diferentes na mesma linha. */
 .cartao-led button {
-  margin-top: 6px;
+  margin-top: auto;
   width: 100%;
   justify-content: center;
 }

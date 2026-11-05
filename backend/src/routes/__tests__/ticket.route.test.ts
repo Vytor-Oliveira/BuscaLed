@@ -94,6 +94,54 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     expect(res.body.ticket.items).toHaveLength(2);
   });
 
+  // A fila do painel mostrava um traço fixo na coluna Veículo porque o pedido
+  // não guardava isso. Marca/modelo/ano, nunca a placa (RN02).
+  it("guarda o veículo da busca no ticket, e aceita ticket sem veículo", async () => {
+    const led = await createLedModel("H11");
+    createdLedModelIds.push(led.id);
+
+    const comVeiculo = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({
+        items: [{ ledModelId: led.id, position: "NEBLINA", quantity: 1 }],
+        vehicle: { make: "VOLKSWAGEN", model: "GOL", year: 2018 },
+      });
+
+    expect(comVeiculo.status).toBe(201);
+    createdTicketIds.push(comVeiculo.body.ticket.id);
+    expect(comVeiculo.body.ticket.vehicle).toEqual({
+      make: "VOLKSWAGEN",
+      model: "GOL",
+      year: 2018,
+    });
+
+    const semVeiculo = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "NEBLINA", quantity: 1 }] });
+
+    expect(semVeiculo.status).toBe(201);
+    createdTicketIds.push(semVeiculo.body.ticket.id);
+    expect(semVeiculo.body.ticket.vehicle).toBeNull();
+  });
+
+  // A placa nunca pode chegar aqui: o schema não tem o campo, então um corpo
+  // que a mande é recusado em vez de ignorado em silêncio.
+  it("recusa um ticket que tente mandar a placa junto", async () => {
+    const led = await createLedModel("H1");
+    createdLedModelIds.push(led.id);
+
+    const res = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({
+        items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }],
+        vehicle: { make: "VW", model: "GOL", year: 2018, plate: "ABC1D23" },
+      });
+
+    expect(res.status).toBe(400);
+  });
   it("retorna 400 ao criar ticket sem itens", async () => {
     const res = await request(app).post("/tickets").set("Cookie", client.cookies).send({ items: [] });
     expect(res.status).toBe(400);

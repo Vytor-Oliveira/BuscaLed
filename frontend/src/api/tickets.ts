@@ -12,11 +12,19 @@ export interface TicketItem {
   quantity: number;
 }
 
+// Marca/modelo/ano da busca que originou o pedido. Nunca a placa (RN02).
+export interface TicketVehicle {
+  make: string;
+  model: string;
+  year: number;
+}
+
 export interface Ticket {
   id: string;
   userId: string;
   userEmail: string;
   customerPhone: string | null;
+  vehicle: TicketVehicle | null;
   status: TicketStatus;
   createdAt: string;
   updatedAt: string;
@@ -65,11 +73,18 @@ export interface NovoItem {
 
 export function createTicket(
   items: NovoItem[],
-  customerPhone?: string
+  customerPhone?: string,
+  vehicle?: TicketVehicle
 ): Promise<{ ticket: Ticket }> {
   return api<{ ticket: Ticket }>("/tickets", {
     method: "POST",
-    body: customerPhone ? { items, customerPhone } : { items },
+    // Campos ausentes ficam fora do corpo: o schema da rota os trata como
+    // opcionais, e mandar undefined explicito quebraria a validacao.
+    body: {
+      items,
+      ...(customerPhone ? { customerPhone } : {}),
+      ...(vehicle ? { vehicle } : {}),
+    },
   });
 }
 

@@ -89,6 +89,8 @@ describe("Confirmacao", () => {
     expect(envio?.corpo).toEqual({
       items: [{ ledModelId: "led-1", position: "FAROL_BAIXO", quantity: 1 }],
       customerPhone: "47999990000",
+      // Vai junto pro representante saber de que carro e o pedido.
+      vehicle: { make: "VOLKSWAGEN", model: "GOL", year: 2018 },
     });
   });
 

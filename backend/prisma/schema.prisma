@@ -139,6 +139,12 @@ model Reservation {
   userId        String
   status        ReservationStatus @default(PENDENTE)
   customerPhone String?
+  // Veiculo da busca que originou o pedido. Marca/modelo/ano, nunca a placa
+  // (RN02) — sao os mesmos tres campos que a Garagem ja guarda. Nulo em
+  // ticket criado antes disto existir.
+  vehicleMake   String?
+  vehicleModel  String?
+  vehicleYear   Int?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 

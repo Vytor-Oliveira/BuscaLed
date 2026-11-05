@@ -55,6 +55,11 @@ model User {
   passwordResetToken         String?
   passwordResetExpiresAt     DateTime?
   createdAt                  DateTime  @default(now())
+  // Consultas pagas de placa gastas na janela corrente, e quando ela começou.
+  // Guarda o número, nunca as placas: cache hit não passa por aqui, então
+  // repetir placa não conta.
+  plateLookupCount           Int       @default(0)
+  plateLookupWindowStart     DateTime  @default(now())
 
   reservations   Reservation[]
   garageVehicles GarageVehicle[]

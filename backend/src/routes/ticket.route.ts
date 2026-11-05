@@ -40,6 +40,9 @@ const createTicketSchema = z.object({
       })
     )
     .min(1, "O ticket precisa de pelo menos um item."),
+  // Opcional: sem telefone o painel so nao mostra o botao de WhatsApp.
+  // Aceita o formato que a pessoa digitar; a normalizacao pro link e do painel.
+  customerPhone: z.string().trim().min(10).max(20).optional(),
 });
 
 const editItemSchema = z.object({
@@ -89,7 +92,11 @@ ticketRouter.post("/", async (req, res, next) => {
   }
 
   try {
-    const ticket = await ticketService.createTicket(req.user!.id, parsed.data.items);
+    const ticket = await ticketService.createTicket(
+      req.user!.id,
+      parsed.data.items,
+      parsed.data.customerPhone
+    );
     res.status(201).json({ ticket });
   } catch (error) {
     handleTicketError(error, res, next);
@@ -143,6 +150,23 @@ ticketRouter.patch("/:id/confirm", async (req, res, next) => {
   }
 });
 
+ticketRouter.get("/:id/items/:itemId/alternatives", async (req, res, next) => {
+  if (req.user!.role === "user") {
+    res.status(403).json({ error: "Sem permissão para este recurso." });
+    return;
+  }
+
+  try {
+    const alternatives = await ticketService.listItemAlternatives(
+      req.params.id,
+      req.params.itemId
+    );
+    res.json({ alternatives });
+  } catch (error) {
+    handleTicketError(error, res, next);
+  }
+});
+
 ticketRouter.patch("/:id/items/:itemId", async (req, res, next) => {
   if (req.user!.role === "user") {
     res.status(403).json({ error: "Sem permissão para este recurso." });
@@ -183,7 +207,11 @@ ticketRouter.patch("/:id/complete", async (req, res, next) => {
 
 ticketRouter.patch("/:id/cancel", async (req, res, next) => {
   try {
-    const ticket = await ticketService.cancelTicket(req.params.id, req.user!.id);
+    const ticket = await ticketService.cancelTicket(
+      req.params.id,
+      req.user!.id,
+      req.user!.role
+    );
     res.json({ ticket });
   } catch (error) {
     handleTicketError(error, res, next);

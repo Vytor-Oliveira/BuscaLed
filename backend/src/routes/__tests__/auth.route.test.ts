@@ -140,4 +140,26 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
     const res = await request(app).get("/garage");
     expect(res.status).toBe(401);
   });
+  // O cookie e httpOnly: sem este endpoint o frontend nao tem como saber quem
+  // esta logado nem qual o papel, o que o painel do M5 precisa pra rotear.
+  it("GET /auth/me devolve o perfil do usuario logado e nega sem sessao", async () => {
+    const semSessao = await request(app).get("/auth/me");
+    expect(semSessao.status).toBe(401);
+
+    const email = uniqueEmail();
+    await request(app)
+      .post("/auth/register")
+      .send({ name: "Perfil Teste", email, password: "senha-forte-123" });
+    createdEmails.push(email);
+    await request(app).get(`/auth/confirm?token=${await getConfirmationToken(email)}`);
+    const login = await request(app).post("/auth/login").send({ email, password: "senha-forte-123" });
+    const cookies = login.headers["set-cookie"] as unknown as string[];
+
+    const res = await request(app).get("/auth/me").set("Cookie", cookies);
+    expect(res.status).toBe(200);
+    expect(res.body.user).toMatchObject({ name: "Perfil Teste", email, role: "user" });
+    // Nunca expor segredo, mesmo pro proprio usuario.
+    expect(res.body.user.passwordHash).toBeUndefined();
+    expect(res.body.user.emailConfirmationToken).toBeUndefined();
+  });
 });

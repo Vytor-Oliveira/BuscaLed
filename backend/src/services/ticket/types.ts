@@ -17,6 +17,7 @@ export interface TicketRecord {
   id: string;
   userId: string;
   userEmail: string;
+  customerPhone: string | null;
   status: ReservationStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -42,13 +43,28 @@ export interface TicketItemDetail {
   ledModelId: string;
   originalLedModelId: string | null;
   socketCode: string;
+  quantity: number;
+}
+
+// Candidatos à troca de um item: mesmo encaixe (RN11) e com estoque bastante
+// para a quantidade pedida — oferecer menos adia a falha pro Concluir.
+export interface TicketItemAlternative {
+  id: string;
+  sku: string;
+  name: string;
+  socketCode: string;
+  stockQty: number;
 }
 
 export interface TicketRepository {
   listByUser(userId: string): Promise<TicketRecord[]>;
   listAll(status?: ReservationStatus): Promise<TicketRecord[]>;
   findById(id: string): Promise<TicketRecord | null>;
-  create(userId: string, items: CreateTicketItemInput[]): Promise<TicketRecord>;
+  create(
+    userId: string,
+    items: CreateTicketItemInput[],
+    customerPhone?: string
+  ): Promise<TicketRecord>;
   // Atômica: só efetiva se o status atual estiver em allowedFrom.
   updateStatus(
     id: string,
@@ -64,6 +80,7 @@ export interface TicketRepository {
     originalLedModelId: string | null
   ): Promise<TicketRecord>;
   findLedModel(ledModelId: string): Promise<LedModelSummary | null>;
+  findInStockBySocket(socketCode: string, minQty: number): Promise<TicketItemAlternative[]>;
 }
 
 export class TicketNotFoundError extends Error {

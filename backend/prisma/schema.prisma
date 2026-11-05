@@ -118,12 +118,16 @@ model LedModel {
   @@index([socketCode])
 }
 
+// customerPhone e informado pelo cliente ao abrir o ticket e serve so pro deep
+// link de WhatsApp do representante (M5). Fica no pedido, nao na conta: quem
+// nunca pediu nada nao tem telefone gravado.
 model Reservation {
-  id        String            @id @default(uuid())
-  userId    String
-  status    ReservationStatus @default(PENDENTE)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id            String            @id @default(uuid())
+  userId        String
+  status        ReservationStatus @default(PENDENTE)
+  customerPhone String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   user  User              @relation(fields: [userId], references: [id])
   items ReservationItem[]
@@ -144,4 +148,21 @@ model ReservationItem {
   reservation      Reservation @relation(fields: [reservationId], references: [id])
   ledModel         LedModel    @relation("CurrentLedModel", fields: [ledModelId], references: [id])
   originalLedModel LedModel?   @relation("OriginalLedModel", fields: [originalLedModelId], references: [id])
+}
+
+// Historico analitico das buscas de compatibilidade, usado pelo dashboard de
+// demanda (M5). Guarda so marca/modelo/ano consultados: nao tem placa nem
+// userId, porque a placa nunca e persistida (RN02) e demanda agregada nao
+// precisa saber quem buscou. resultCount = 0 marca lacuna na matriz, que e o
+// dado mais acionavel pro parceiro.
+model SearchHistory {
+  id          String   @id @default(uuid())
+  make        String
+  model       String
+  year        Int
+  resultCount Int
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([make, model])
 }

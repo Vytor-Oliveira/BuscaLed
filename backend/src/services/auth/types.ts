@@ -12,6 +12,15 @@ export interface UserRecord {
   emailConfirmationExpiresAt: Date | null;
 }
 
+// O que o frontend pode saber do proprio usuario: nunca hash de senha nem
+// token de confirmacao, mesmo sendo a propria pessoa.
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
 export interface CreateUserInput {
   name: string;
   email: string;

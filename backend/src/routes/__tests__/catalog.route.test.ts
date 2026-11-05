@@ -101,4 +101,25 @@ describe("Catalog routes (integração real — Postgres, sem mocks)", () => {
 
     expect(res.status).toBe(404);
   });
+  it("lista os produtos do catalogo com estoque, e bloqueia quem nao e admin", async () => {
+    const cookies = await createAdminAndLogin();
+    const sku = `TESTE-LISTA-${Date.now()}`;
+
+    const criado = await request(app)
+      .post("/catalog/led-models")
+      .set("Cookie", cookies)
+      .send({ sku, name: "LED de teste listagem", socketCode: "TESTE-LISTA", stockQty: 7, stockMin: 3 });
+    expect(criado.status).toBe(201);
+    createdLedModelIds.push(criado.body.ledModel.id);
+
+    const lista = await request(app).get("/catalog/led-models").set("Cookie", cookies);
+    expect(lista.status).toBe(200);
+
+    const encontrado = lista.body.ledModels.find((m: { sku: string }) => m.sku === sku);
+    // A UI de estoque do painel depende desses dois campos no retorno.
+    expect(encontrado).toMatchObject({ sku, stockQty: 7, stockMin: 3 });
+
+    const semLogin = await request(app).get("/catalog/led-models");
+    expect(semLogin.status).toBe(401);
+  });
 });

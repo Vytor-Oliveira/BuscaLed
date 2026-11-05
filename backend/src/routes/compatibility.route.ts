@@ -1,12 +1,16 @@
 import { Router } from "express";
 import { prisma } from "../db/prisma";
 import { PrismaCompatibilityRepository } from "../repositories/compatibility.repository";
+import { PrismaSearchHistoryRepository } from "../repositories/search-history.repository";
 import { CompatibilityService } from "../services/compatibility/compatibility.service";
 import { VehicleNotFoundError } from "../services/compatibility/types";
 
 export const compatibilityRouter = Router();
 
-const service = new CompatibilityService(new PrismaCompatibilityRepository(prisma));
+const service = new CompatibilityService(
+  new PrismaCompatibilityRepository(prisma),
+  new PrismaSearchHistoryRepository(prisma)
+);
 
 compatibilityRouter.get("/", async (req, res, next) => {
   const { make, model, year } = req.query;

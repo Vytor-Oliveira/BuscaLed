@@ -50,6 +50,15 @@ export interface CompatibilityRepository {
   findLedModelsBySocketCodes(socketCodes: string[]): Promise<CompatibleLed[]>;
 }
 
+/**
+ * Escrita do histórico analítico fica separada do CompatibilityRepository, que
+ * é só de leitura. Sem placa e sem userId — ver o comentário do model
+ * SearchHistory no schema.
+ */
+export interface SearchHistoryRepository {
+  record(vehicle: VehicleInfo, resultCount: number): Promise<void>;
+}
+
 export class VehicleNotFoundError extends Error {
   constructor(vehicle: VehicleInfo) {
     super(

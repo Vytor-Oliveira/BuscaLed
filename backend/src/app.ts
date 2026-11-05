@@ -8,6 +8,7 @@ import { authRouter } from "./routes/auth.route";
 import { vehicleRouter } from "./routes/vehicle.route";
 import { stockRouter } from "./routes/stock.route";
 import { catalogRouter } from "./routes/catalog.route";
+import { analyticsRouter } from "./routes/analytics.route";
 import { ticketRouter } from "./routes/ticket.route";
 
 export function createApp(): Application {
@@ -29,6 +30,7 @@ export function createApp(): Application {
   app.use("/garage", vehicleRouter);
   app.use("/stock", stockRouter);
   app.use("/catalog", catalogRouter);
+  app.use("/analytics", analyticsRouter);
   app.use("/tickets", ticketRouter);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -14,6 +14,8 @@ const app = createApp();
 describe("Compatibility routes (integração real — Postgres, sem mocks)", () => {
   const createdVehicleModelIds: string[] = [];
   const createdLedModelIds: string[] = [];
+  // Toda busca agora grava historico, inclusive as dos testes que ja existiam.
+  const buscasRegistradas: string[] = ["INEXISTENTE", "TESTE"];
 
   afterAll(async () => {
     if (createdVehicleModelIds.length > 0) {
@@ -24,6 +26,9 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
     }
     if (createdLedModelIds.length > 0) {
       await prisma.ledModel.deleteMany({ where: { id: { in: createdLedModelIds } } });
+    }
+    if (buscasRegistradas.length > 0) {
+      await prisma.searchHistory.deleteMany({ where: { make: { in: buscasRegistradas } } });
     }
     await prisma.$disconnect();
     await closeNotificationQueue();
@@ -92,5 +97,49 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
     );
     expect(piscaDianteiro.socketCodes).toEqual([socketSemProduto]);
     expect(piscaDianteiro.models).toEqual([]);
+  });
+  // O dashboard de demanda (M5) depende desse registro. Sem placa e sem userId:
+  // o historico e agregado e anonimo por desenho (RN02).
+  it("registra a busca no historico, inclusive quando nao encontra o veiculo", async () => {
+    const runId = Date.now();
+    const makeSemResultado = `TESTEHIST-VAZIO-${runId}`;
+    const makeComResultado = `TESTEHIST-OK-${runId}`;
+    buscasRegistradas.push(makeSemResultado, makeComResultado);
+
+    // 1) veiculo que nao existe na matriz -> 404, mas tem de ficar registrado
+    const semResultado = await request(app).get(
+      `/compatibility?make=${makeSemResultado}&model=QUALQUER&year=2020`
+    );
+    expect(semResultado.status).toBe(404);
+
+    const registroVazio = await prisma.searchHistory.findFirstOrThrow({
+      where: { make: makeSemResultado },
+    });
+    expect(registroVazio.resultCount).toBe(0);
+    expect(registroVazio.year).toBe(2020);
+
+    // 2) veiculo com produto cadastrado -> conta quantos produtos achou
+    const socket = `TESTEHIST-${runId}`;
+    const vehicle = await prisma.vehicleModel.create({
+      data: { make: makeComResultado, model: "MODELO-HIST", yearStart: 2020, yearEnd: 2021 },
+    });
+    createdVehicleModelIds.push(vehicle.id);
+    await prisma.vehicleFitting.create({
+      data: { vehicleModelId: vehicle.id, position: "FAROL_BAIXO", socketCode: socket },
+    });
+    const led = await prisma.ledModel.create({
+      data: { sku: `TESTEHIST-LED-${runId}`, name: "LED hist", socketCode: socket, stockQty: 1 },
+    });
+    createdLedModelIds.push(led.id);
+
+    const comResultado = await request(app).get(
+      `/compatibility?make=${makeComResultado}&model=MODELO-HIST&year=2020`
+    );
+    expect(comResultado.status).toBe(200);
+
+    const registroOk = await prisma.searchHistory.findFirstOrThrow({
+      where: { make: makeComResultado },
+    });
+    expect(registroOk.resultCount).toBe(1);
   });
 });

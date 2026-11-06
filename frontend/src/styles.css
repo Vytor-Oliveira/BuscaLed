@@ -521,6 +521,19 @@ button,
   flex: none;
 }
 
+/* As fotos da Shocklight vem em fundo branco: a caixa acompanha, senao
+   sobra uma moldura azul em volta do recorte do produto. */
+.produto-icone-foto {
+  background: #ffffff;
+}
+
+.produto-icone img {
+  display: block;
+  max-width: 100%;
+  max-height: 44px;
+  object-fit: contain;
+}
+
 .produto-baixo .produto-icone {
   background: #fdeec2;
 }

@@ -13,11 +13,27 @@ export interface TicketItemRecord {
   quantity: number;
 }
 
+// Marca/modelo/ano do veiculo da busca. Nao e a placa: a placa nunca e
+// persistida em lugar nenhum (RN02).
+export interface TicketVehicle {
+  make: string;
+  model: string;
+  year: number;
+}
+
+// Dados opcionais do pedido. Agrupados porque sao dois e viriam como o
+// terceiro e quarto parametro posicional de tres funcoes.
+export interface CreateTicketExtras {
+  customerPhone?: string;
+  vehicle?: TicketVehicle;
+}
+
 export interface TicketRecord {
   id: string;
   userId: string;
   userEmail: string;
   customerPhone: string | null;
+  vehicle: TicketVehicle | null;
   status: ReservationStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -63,7 +79,7 @@ export interface TicketRepository {
   create(
     userId: string,
     items: CreateTicketItemInput[],
-    customerPhone?: string
+    extras?: CreateTicketExtras
   ): Promise<TicketRecord>;
   // Atômica: só efetiva se o status atual estiver em allowedFrom.
   updateStatus(

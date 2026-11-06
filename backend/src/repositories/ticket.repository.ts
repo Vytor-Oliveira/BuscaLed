@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient, ReservationStatus } from "@prisma/client";
 import {
+  CreateTicketExtras,
   CreateTicketItemInput,
   InvalidStatusTransitionError,
   LedModelSummary,
@@ -28,6 +29,15 @@ function toTicketRecord(reservation: TicketWithRelations): TicketRecord {
     userId: reservation.userId,
     userEmail: reservation.user.email,
     customerPhone: reservation.customerPhone,
+    // Os tres campos entram e saem juntos: ou o pedido tem veiculo, ou nao tem.
+    vehicle:
+      reservation.vehicleMake && reservation.vehicleModel && reservation.vehicleYear
+        ? {
+            make: reservation.vehicleMake,
+            model: reservation.vehicleModel,
+            year: reservation.vehicleYear,
+          }
+        : null,
     status: reservation.status,
     createdAt: reservation.createdAt,
     updatedAt: reservation.updatedAt,
@@ -75,12 +85,15 @@ export class PrismaTicketRepository implements TicketRepository {
   async create(
     userId: string,
     items: CreateTicketItemInput[],
-    customerPhone?: string
+    extras?: CreateTicketExtras
   ): Promise<TicketRecord> {
     const reservation = await this.prisma.reservation.create({
       data: {
         userId,
-        customerPhone,
+        customerPhone: extras?.customerPhone,
+        vehicleMake: extras?.vehicle?.make,
+        vehicleModel: extras?.vehicle?.model,
+        vehicleYear: extras?.vehicle?.year,
         items: {
           create: items.map((item) => ({
             ledModelId: item.ledModelId,

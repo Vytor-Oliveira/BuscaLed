@@ -55,6 +55,11 @@ model User {
   passwordResetToken         String?
   passwordResetExpiresAt     DateTime?
   createdAt                  DateTime  @default(now())
+  // Consultas pagas de placa gastas na janela corrente, e quando ela começou.
+  // Guarda o número, nunca as placas: cache hit não passa por aqui, então
+  // repetir placa não conta.
+  plateLookupCount           Int       @default(0)
+  plateLookupWindowStart     DateTime  @default(now())
 
   reservations   Reservation[]
   garageVehicles GarageVehicle[]
@@ -114,6 +119,9 @@ model LedModel {
   name        String
   description String?
   socketCode  String
+  // Foto do produto servida pelo proprio site (frontend/public/leds).
+  // Nula enquanto nao houver imagem: o cartao cai no icone generico.
+  imageUrl    String?
   stockQty    Int     @default(0)
   stockMin    Int     @default(5)
 
@@ -131,6 +139,12 @@ model Reservation {
   userId        String
   status        ReservationStatus @default(PENDENTE)
   customerPhone String?
+  // Veiculo da busca que originou o pedido. Marca/modelo/ano, nunca a placa
+  // (RN02) — sao os mesmos tres campos que a Garagem ja guarda. Nulo em
+  // ticket criado antes disto existir.
+  vehicleMake   String?
+  vehicleModel  String?
+  vehicleYear   Int?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 

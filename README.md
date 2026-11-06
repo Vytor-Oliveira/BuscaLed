@@ -142,7 +142,8 @@ na planilha de origem. Sem `--allow-rejects`, a importação termina com código
 
 ## Regras de negócio principais
 
-- A placa do veículo não é armazenada em nenhuma tabela, log ou cache (RN02)
+- A placa do veículo nunca é gravada vinculada a um usuário, sessão ou à Garagem Virtual (RN02). Existe um cache anônimo (Redis, `placa → marca/modelo/ano`, TTL 90 dias) só para evitar reconsultar a API paga pela mesma placa — sem nenhuma referência a conta ou histórico de navegação
+- A consulta de placa exige login e tem limite de 5 consultas gratuitas por conta (decisão de custo — a API é paga por consulta); repetir uma placa já consultada usa o cache e não conta no limite
 - O ticket de reserva não constitui venda confirmada nem obrigação financeira (RN04)
 - O estoque só é decrementado quando o representante marca o ticket como Concluído (RN12)
 - A substituição de produto pelo representante deve respeitar o mesmo tipo de encaixe (RN11)

@@ -114,19 +114,27 @@ authRouter.post("/register", registrationRateLimiter, async (req, res, next) => 
   }
 });
 
+// Este link sai num e-mail e e aberto no navegador, nao consumido por codigo:
+// responder JSON deixava a pessoa olhando um blob. Quem mostra o resultado e a
+// tela de login, que e o proximo passo dela de qualquer forma.
+function telaDeLogin(resultado: "ok" | "invalida"): string {
+  const base = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  return `${base}/login?confirmacao=${resultado}`;
+}
+
 authRouter.get("/confirm", async (req, res, next) => {
   const { token } = req.query;
   if (typeof token !== "string") {
-    res.status(400).json({ error: "Token de confirmação ausente." });
+    res.redirect(telaDeLogin("invalida"));
     return;
   }
 
   try {
     await authService.confirmEmail(token);
-    res.json({ message: "E-mail confirmado com sucesso." });
+    res.redirect(telaDeLogin("ok"));
   } catch (error) {
     if (error instanceof InvalidOrExpiredTokenError) {
-      res.status(400).json({ error: error.message });
+      res.redirect(telaDeLogin("invalida"));
       return;
     }
     next(error);

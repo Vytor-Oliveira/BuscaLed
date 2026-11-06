@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { UserRole, useAuth } from "../auth/AuthContext";
 import {
   IconeCaixa,
   IconeDashboard,
@@ -7,6 +7,12 @@ import {
   IconeLampada,
   IconeSeta,
 } from "../components/Icones";
+
+const ROTULO_PAPEL: Record<UserRole, string> = {
+  admin: "ADMIN",
+  rep: "REPRESENTANTE",
+  user: "CLIENTE",
+};
 
 export default function PainelLayout() {
   const { user, logout } = useAuth();
@@ -30,7 +36,7 @@ export default function PainelLayout() {
             <span className="sidebar-marca-nome">
               Busca<span>LED</span>
             </span>
-            <div className="sidebar-marca-sub">ADMIN</div>
+            <div className="sidebar-marca-sub">{user ? ROTULO_PAPEL[user.role] : ""}</div>
           </span>
         </div>
 

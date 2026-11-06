@@ -52,12 +52,48 @@ const LED_CATALOG: Array<{
   { sku: "SHK-W21-LANTERNA", name: "Shocklight W21 LED", socketCode: "W21W" },
 ];
 
+/**
+ * Foto oficial de cada produto, baixada do site da Shocklight para
+ * frontend/public/leds. A chave é o SKU da Shocklight, que é o nome do arquivo
+ * — HB3 e HB4 da linha S14 saem na mesma embalagem, daí o arquivo repetido.
+ * Produto fora deste mapa fica sem imagem e o cartão cai no ícone genérico.
+ */
+const IMAGENS: Record<string, string> = {
+  "SHK-S14-H4": "SLL-140004",
+  "SHK-S14-H7": "SLL-140007",
+  "SHK-S14-HB3": "SLL-149000",
+  "SHK-S14-HB4": "SLL-149000",
+  "SHK-S14X-H1": "SLL-140001X",
+  "SHK-S14X-H4": "SLL-140004X",
+  "SHK-S14X-H7": "SLL-140007X",
+  "SHK-S14X-H11": "SLL-140011X",
+  "SHK-S14X-HB3": "SLL-149005X",
+  "SHK-S14X-HB4": "SLL-149006X",
+  "SHK-S16-H4": "SLL-160004",
+  "SHK-S16-H7": "SLL-160007",
+  "SHK-S16-H11": "SLL-160011",
+  "SHK-S17-H1": "SLL-170001",
+  "SHK-S17-H4": "SLL-170004",
+  "SHK-S17-H7": "SLL-170007",
+  "SHK-S17X-H4": "SLL-170004X",
+  "SHK-INFINITY-H4": "SLL-120004",
+  "SHK-GOLD-H11": "SLL-160011G",
+  "SHK-W21-LANTERNA": "SLL-7440CB-BC",
+};
+
+function imagemDe(sku: string): string | null {
+  const arquivo = IMAGENS[sku];
+  return arquivo ? `/leds/${arquivo}.jpg` : null;
+}
+
 async function main(): Promise<void> {
   for (const product of LED_CATALOG) {
+    const imageUrl = imagemDe(product.sku);
     await prisma.ledModel.upsert({
       where: { sku: product.sku },
-      update: {},
-      create: product,
+      // Só a imagem é reescrita: estoque mexido pelo admin tem que ficar de pé.
+      update: { imageUrl },
+      create: { ...product, imageUrl },
     });
   }
   // eslint-disable-next-line no-console

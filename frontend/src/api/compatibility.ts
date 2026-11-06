@@ -20,6 +20,7 @@ export interface CompatibleLed {
   sku: string;
   name: string;
   socketCode: string;
+  imageUrl: string | null;
   inStock: boolean;
 }
 

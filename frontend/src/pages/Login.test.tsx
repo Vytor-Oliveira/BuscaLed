@@ -25,13 +25,14 @@ function mockRotas(resolver: (url: string, init?: RequestInit) => unknown): stri
 
 const semSessao = { ok: false, status: 401, corpo: { error: "Não autenticado." } };
 
-function montar() {
+function montar(busca = "") {
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={["/login"]}>
+      <MemoryRouter initialEntries={[`/login${busca}`]}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/painel/tickets" element={<p>Fila de Pedidos</p>} />
+          <Route path="/garagem" element={<p>Minha Garagem</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>
@@ -187,5 +188,66 @@ describe("Login", () => {
     montar();
 
     expect(await screen.findByText("Fila de Pedidos")).toBeInTheDocument();
+  });
+
+  // O painel é do representante. Mandar o cliente pra lá fazia o RequireRole
+  // responder "sem permissão" como primeira tela depois de ele entrar.
+  it("leva o cliente para a garagem, não para o painel", async () => {
+    const cliente = { ...perfil, role: "user" as const };
+    let logado = false;
+    mockRotas((url) => {
+      if (url.includes("/auth/login")) {
+        logado = true;
+        return { ok: true, status: 200, corpo: {} };
+      }
+      return logado ? { ok: true, status: 200, corpo: { user: cliente } } : semSessao;
+    });
+
+    montar();
+    await screen.findByLabelText("E-mail");
+    preencher("cliente@example.com", "senha-forte-123");
+    screen.getByRole("button", { name: "Entrar na minha conta" }).click();
+
+    expect(await screen.findByText("Minha Garagem")).toBeInTheDocument();
+    expect(screen.queryByText("Fila de Pedidos")).not.toBeInTheDocument();
+  });
+
+  // Acontece de verdade quando o cookie de sessão é recusado: o POST passa e o
+  // GET /auth/me seguinte devolve 401. Antes a tela ficava parada, sem dizer nada.
+  it("avisa quando entra mas não consegue carregar o perfil", async () => {
+    mockRotas((url) =>
+      url.includes("/auth/login") ? { ok: true, status: 200, corpo: {} } : semSessao
+    );
+
+    montar();
+    await screen.findByLabelText("E-mail");
+    preencher("rep@example.com", "senha-forte-123");
+    screen.getByRole("button", { name: "Entrar na minha conta" }).click();
+
+    expect(await screen.findByText(/não foi possível carregar seu perfil/i)).toBeInTheDocument();
+    expect(screen.queryByText("Fila de Pedidos")).not.toBeInTheDocument();
+  });
+
+  it("manda o cliente com sessão ativa para a garagem", async () => {
+    mockRotas(() => ({ ok: true, status: 200, corpo: { user: { ...perfil, role: "user" } } }));
+    montar();
+
+    expect(await screen.findByText("Minha Garagem")).toBeInTheDocument();
+  });
+
+  // O /auth/confirm redireciona pra cá: o resultado tem que aparecer como
+  // mensagem na tela, não como JSON do backend.
+  it("mostra o resultado da confirmação de e-mail que vem na query", async () => {
+    mockRotas(() => semSessao);
+    montar("?confirmacao=ok");
+
+    expect(await screen.findByText(/E-mail confirmado/)).toBeInTheDocument();
+  });
+
+  it("explica o link de confirmação expirado", async () => {
+    mockRotas(() => semSessao);
+    montar("?confirmacao=invalida");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("inválido ou já expirou");
   });
 });

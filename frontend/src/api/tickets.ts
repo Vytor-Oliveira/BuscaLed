@@ -59,11 +59,9 @@ export function updateTicketItem(
   });
 }
 
-// O backend identifica o pedido por UUID; o RFC mostra um número curto. Até
-// existir sequencial no banco, o sufixo do próprio id serve de rótulo estável.
-export function numeroTicket(id: string): string {
-  return `TKT-${id.replace(/-/g, "").slice(-4).toUpperCase()}`;
-}
+// A implementação mora em lib/ticket.ts; o re-export mantém quem já importava
+// daqui funcionando sem duas cópias da mesma regra.
+export { numeroTicket } from "../lib/ticket";
 
 export interface NovoItem {
   ledModelId: string;

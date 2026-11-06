@@ -31,7 +31,8 @@ function montar(roles: Array<"user" | "rep" | "admin">) {
               </RequireRole>
             }
           />
-          <Route path="/login" element={<p>Tela de login</p>} />
+          {/* A rota canônica de autenticação é /entrar; /login virou alias. */}
+          <Route path="/entrar" element={<p>Tela de login</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>

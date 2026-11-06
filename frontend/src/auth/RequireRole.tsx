@@ -1,5 +1,7 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { ShieldOff } from "lucide-react";
 import { UserRole, useAuth } from "./AuthContext";
+import { CarregandoSessao } from "../components/ui/CarregandoSessao";
 
 const NOME_PAPEL: Record<UserRole, string> = {
   admin: "ao administrador",
@@ -31,20 +33,30 @@ export function RequireRole({
   children: React.ReactNode;
 }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return <p className="estado-carregando">Carregando…</p>;
+    return <CarregandoSessao />;
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    // Guarda a origem para o login devolver o visitante onde ele estava: sem
+    // isso, quem clica em "Gerar reserva" deslogado perde a seleção.
+    return <Navigate to="/entrar" replace state={{ de: location.pathname + location.search }} />;
   }
 
   if (!roles.includes(user.role)) {
     return (
-      <section className="estado-vazio">
-        <h2>Sem permissão</h2>
-        <p>Esta área é restrita {quemPode(roles)}.</p>
+      <section className="container-app grid min-h-[60vh] place-items-center py-16">
+        <div className="flex max-w-md flex-col items-center text-center">
+          <span className="grid size-14 place-items-center rounded-full bg-danger-bg text-danger">
+            <ShieldOff aria-hidden className="size-7" />
+          </span>
+          <h2 className="mt-5 text-2xl font-bold tracking-[-0.02em] text-ink">Sem permissão</h2>
+          <p className="mt-2 text-[15px] leading-relaxed text-muted">
+            Esta área é restrita {quemPode(roles)}.
+          </p>
+        </div>
       </section>
     );
   }

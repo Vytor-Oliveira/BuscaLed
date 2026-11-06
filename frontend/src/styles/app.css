@@ -1,0 +1,334 @@
+@import "tailwindcss";
+
+/* Tema manual vence prefers-color-scheme: data-theme e escrito pelo ThemeProvider. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---------------------------------------------------------------------------
+   Tokens semanticos. As utilities do Tailwind apontam para estas variaveis, e
+   o tema troca as variaveis — nao existe classe duplicada por tema.
+   --------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* Marca: evolucao do navy #1f4e79 do projeto, agora como escala completa. */
+  --brand-50: #eef5fb;
+  --brand-100: #d7e7f5;
+  --brand-200: #b0cee9;
+  --brand-300: #7fadd8;
+  --brand-400: #4d88c2;
+  --brand-500: #2e6ba8;
+  --brand-600: #1f5288;
+  --brand-700: #1a4169;
+  --brand-800: #163351;
+  --brand-900: #12283e;
+
+  /* Acento de farol. Entra com parcimonia: acao primaria da busca, foco,
+     destaque. Texto sobre ambar e sempre o marrom escuro, nunca branco. */
+  --accent-300: #ffc85c;
+  --accent-400: #ffb224;
+  --accent-500: #f59300;
+  --accent-600: #cf7a00;
+  --accent-ink: #2a1a02;
+
+  /* Superficies. Claro e o default porque a cena de uso e um motorista no
+     celular, do lado de fora, com luz do dia. */
+  --canvas: #f6f8fa;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eef1f5;
+  --border: #e3e8ee;
+  --border-strong: #cbd3dc;
+
+  --text: #101828;
+  --text-muted: #5a6672;
+  --text-subtle: #8a95a1;
+  --text-on-brand: #ffffff;
+
+  /* Estado. Reservado a estado — nunca a serie de grafico. */
+  --success: #0e7a44;
+  --success-bg: #e6f4ec;
+  --warning: #9a6200;
+  --warning-bg: #fdf3e0;
+  --danger: #b4231c;
+  --danger-bg: #fceae9;
+
+  /* A barra lateral do painel e escura nos dois temas: a tinta dela e
+     constante, nunca derivada dos tokens que o tema escuro reaproveita
+     como superficie. */
+  --sidebar-ink: #eaf1f8;
+  --sidebar-ink-muted: #adc4d8;
+
+  --ring: var(--accent-500);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  /* Sombra com deslocamento e desfoque suave. Nunca halo colorido sem offset. */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.07);
+  --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 12px 24px -6px rgba(16, 24, 40, 0.12), 0 4px 10px -4px rgba(16, 24, 40, 0.08);
+  --shadow-xl: 0 24px 48px -12px rgba(16, 24, 40, 0.18), 0 8px 16px -8px rgba(16, 24, 40, 0.1);
+
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 260ms;
+  /* Ease-out exponencial: sai rapido, assenta devagar. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Escuro escolhido, nao invertido: superficies azul-ardosia, marca clareada
+   para manter contraste, acento rebaixado para nao vibrar no escuro. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #0d1520;
+  --surface: #141e2b;
+  --surface-raised: #1b2735;
+  --surface-sunken: #0a111a;
+  --border: #26333f;
+  --border-strong: #3a4a59;
+
+  --text: #e8edf2;
+  --text-muted: #9ba8b5;
+  --text-subtle: #76838f;
+  --text-on-brand: #ffffff;
+
+  --brand-600: #4d88c2;
+  --brand-700: #7fadd8;
+  --brand-50: #152536;
+  --brand-100: #1b3148;
+
+  --accent-500: #ffb224;
+  --accent-600: #ffc85c;
+
+  --success: #4ade80;
+  --success-bg: #11291c;
+  --warning: #fbbf24;
+  --warning-bg: #2c2008;
+  --danger: #fb7185;
+  --danger-bg: #2d1316;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 10px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 14px 28px -8px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 28px 56px -16px rgba(0, 0, 0, 0.65);
+}
+
+/* Sem escolha manual, segue o sistema. O :not() impede que o tema claro
+   explicito seja sobrescrito por um sistema escuro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+
+    --canvas: #0d1520;
+    --surface: #141e2b;
+    --surface-raised: #1b2735;
+    --surface-sunken: #0a111a;
+    --border: #26333f;
+    --border-strong: #3a4a59;
+
+    --text: #e8edf2;
+    --text-muted: #9ba8b5;
+    --text-subtle: #76838f;
+
+    --brand-600: #4d88c2;
+    --brand-700: #7fadd8;
+    --brand-50: #152536;
+    --brand-100: #1b3148;
+
+    --accent-500: #ffb224;
+    --accent-600: #ffc85c;
+
+    --success: #4ade80;
+    --success-bg: #11291c;
+    --warning: #fbbf24;
+    --warning-bg: #2c2008;
+    --danger: #fb7185;
+    --danger-bg: #2d1316;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 10px -2px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 14px 28px -8px rgba(0, 0, 0, 0.55);
+    --shadow-xl: 0 28px 56px -16px rgba(0, 0, 0, 0.65);
+  }
+}
+
+/* --------------------------------------------------------------------------- */
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-sunken: var(--surface-sunken);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-on-brand: var(--text-on-brand);
+  --color-sidebar-ink: var(--sidebar-ink);
+  --color-sidebar-muted: var(--sidebar-ink-muted);
+
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --ease-out-expo: var(--ease);
+}
+
+/* ---------------------------------------------------------------------------
+   Superficies do navegador. Selecao, caret, barra de rolagem, anel de foco e
+   sublinhado saem com default de fabrica e nao pertencem a design system
+   nenhuma — entao vem da paleta.
+   --------------------------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--text);
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--accent-300);
+    color: var(--accent-ink);
+  }
+
+  :root[data-theme="dark"] ::selection {
+    background-color: var(--brand-700);
+    color: #081019;
+  }
+
+  input,
+  textarea,
+  [contenteditable] {
+    caret-color: var(--brand-600);
+  }
+
+  /* Anel de foco unico em todo o app, visivel nos dois temas. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  /* O default do Chrome recorta o sublinhado nas descendentes. */
+  a {
+    text-underline-offset: 0.18em;
+    text-decoration-thickness: from-font;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border: 3px solid var(--canvas);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-subtle);
+  }
+
+  /* Numeral tabular em metrica, quantidade e tabela: coluna de numero nao
+     dança quando o valor muda. */
+  th,
+  td,
+  output,
+  time,
+  [data-numeros] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Imagem nunca estoura o container nem carrega layout shift. */
+  img,
+  svg,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility container-app {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+  max-width: 76rem;
+}
+
+/* Um unico momento autorado de movimento: o conteudo assenta ao entrar. */
+@keyframes assenta {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility assenta {
+  animation: assenta var(--dur-slow) var(--ease) both;
+}

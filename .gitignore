@@ -36,8 +36,11 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Claude Code (config local por máquina/usuário)
-.claude/settings.local.json
+# Ferramentas de design e assistência rodadas localmente. O .claude/ carrega um
+# binário de ~22 MB e configuração por máquina; o .impeccable/ guarda capturas
+# de tela e estado de execução. Nada disso pertence a um repositório público.
+.claude/
+.impeccable/
 
 # Docs internas — não vão para o repositório público
 docs/roteiro-tecnico.md

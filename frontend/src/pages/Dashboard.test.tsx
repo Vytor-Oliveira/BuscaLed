@@ -1,111 +1,148 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import type { DemandSummary } from "../api/analytics";
 import Dashboard from "./Dashboard";
+import { mockarApi, renderizarComProvedores, sessaoDe } from "../test/render";
 
-// "Buscas" também é cabeçalho da tabela do gráfico, então a busca é pelo
-// rótulo do card, não pelo texto solto.
-function cartaoMetrica(rotulo: string): HTMLElement {
-  const alvo = screen
-    .getAllByText(rotulo)
-    .find((el) => el.classList.contains("metrica-rotulo"));
-  return alvo!.closest(".metrica") as HTMLElement;
+function resumo(sobrescreve: Partial<DemandSummary> = {}): DemandSummary {
+  return {
+    periodDays: 30,
+    totals: {
+      searches: 120,
+      searchesWithoutResult: 18,
+      tickets: 30,
+      // Fração, não percentual: o serviço faz tickets / searches.
+      conversionRate: 0.25,
+    },
+    searchesPerDay: [
+      { day: "2026-11-01", count: 4 },
+      { day: "2026-11-02", count: 0 },
+      { day: "2026-11-03", count: 7 },
+    ],
+    topProducts: [
+      { ledModelId: "led-1", sku: "SLL-140004", name: "Ultraled Infinity", totalReserved: 12 },
+    ],
+    criticalStock: [
+      { ledModelId: "led-2", sku: "SLL-120004", name: "S16 T10", stockQty: 1, stockMin: 5 },
+    ],
+    topVehicles: [
+      { make: "VOLKSWAGEN", model: "GOL", searchCount: 40, withoutResultCount: 9 },
+    ],
+    ...sobrescreve,
+  };
 }
 
-const resumo = {
-  periodDays: 30,
-  totals: { searches: 47, searchesWithoutResult: 9, tickets: 8, conversionRate: 0.17 },
-  searchesPerDay: [
-    { day: "2026-10-01", count: 3 },
-    { day: "2026-10-02", count: 7 },
-    { day: "2026-10-03", count: 5 },
-  ],
-  topProducts: [
-    { ledModelId: "led-1", sku: "SHK-S14-H4", name: "Headlight S14", totalReserved: 12 },
-    { ledModelId: "led-2", sku: "SHK-S16-H7", name: "Ultraled S16", totalReserved: 3 },
-  ],
-  criticalStock: [
-    { ledModelId: "led-3", sku: "SHK-S17-H1", name: "Ultraled S17", stockQty: 1, stockMin: 5 },
-  ],
-  topVehicles: [
-    { make: "VOLKSWAGEN", model: "SAVEIRO", searchCount: 9, withoutResultCount: 4 },
-    { make: "FORD", model: "KA", searchCount: 2, withoutResultCount: 0 },
-  ],
-};
+function montar(corpo: unknown, ok = true, status = 200) {
+  mockarApi((caminho) =>
+    caminho === "/auth/me"
+      ? sessaoDe("rep")
+      : { ok, status, corpo }
+  );
+  return renderizarComProvedores(<Dashboard />, { rota: "/painel/demanda" });
+}
 
-function mockFetch(resposta: unknown, ok = true, status = 200) {
-  globalThis.fetch = (() =>
-    Promise.resolve({ ok, status, json: () => Promise.resolve(resposta) })) as unknown as typeof fetch;
+function noRanking(titulo: string) {
+  const tabela = screen
+    .getAllByRole("table")
+    .find((t) => within(t).queryByText(titulo) !== null);
+  return within(tabela ?? screen.getAllByRole("table")[0]);
 }
 
 describe("Dashboard", () => {
-  it("mostra os cards de métrica com os totais do período", async () => {
-    mockFetch({ summary: resumo });
-    render(<Dashboard />);
+  it("mostra os KPIs com os totais do período", async () => {
+    montar({ summary: resumo() });
 
-    expect(await screen.findByText("Buscas por dia")).toBeInTheDocument();
-    expect(within(cartaoMetrica("Buscas")).getByText("47")).toBeInTheDocument();
-    expect(within(cartaoMetrica("Tickets")).getByText("8")).toBeInTheDocument();
-    // conversionRate 0.17 vira 17%.
-    expect(within(cartaoMetrica("Conversão")).getByText("17%")).toBeInTheDocument();
-    expect(
-      within(cartaoMetrica("Produto mais pedido")).getByText("Headlight S14")
-    ).toBeInTheDocument();
+    expect(await screen.findByText("120")).toBeInTheDocument();
+    expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.getByText("18")).toBeInTheDocument();
+  });
+
+  it("formata a conversão como porcentagem em pt-BR", async () => {
+    montar({ summary: resumo() });
+
+    // 0,25 é fração: tem que sair 25%, não 0,25%.
+    expect(await screen.findByText("25%")).toBeInTheDocument();
   });
 
   it("mostra os três rankings com os valores da API", async () => {
-    mockFetch({ summary: resumo });
-    render(<Dashboard />);
+    montar({ summary: resumo() });
 
-    expect(await screen.findByText("Top produtos pedidos")).toBeInTheDocument();
-    expect(screen.getByText("Top modelos pesquisados")).toBeInTheDocument();
-    expect(screen.getByText("Estoque crítico")).toBeInTheDocument();
-
-    // O produto top aparece duas vezes por design: no card de métrica e no ranking.
-    expect(screen.getAllByText("Headlight S14")).toHaveLength(2);
-    expect(screen.getByText("VOLKSWAGEN SAVEIRO")).toBeInTheDocument();
-  });
-
-  it("desenha a série de buscas por dia", async () => {
-    mockFetch({ summary: resumo });
-    render(<Dashboard />);
-
-    expect(await screen.findByText("Buscas por dia")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /3 dias, pico de 7/ })).toBeInTheDocument();
-  });
-
-  it("destaca quantas buscas do veículo não acharam LED, que é a lacuna da matriz", async () => {
-    mockFetch({ summary: resumo });
-    render(<Dashboard />);
-
-    expect(await screen.findByText("4 sem resultado")).toBeInTheDocument();
-    // FORD KA achou resultado em todas, então não ganha o detalhe.
-    expect(screen.queryByText("0 sem resultado")).not.toBeInTheDocument();
+    expect(await screen.findByText("Ultraled Infinity")).toBeInTheDocument();
+    expect(screen.getByText("VOLKSWAGEN GOL")).toBeInTheDocument();
+    expect(screen.getByText("S16 T10")).toBeInTheDocument();
   });
 
   it("cada ranking é uma tabela de verdade, legível por leitor de tela", async () => {
-    mockFetch({ summary: resumo });
-    render(<Dashboard />);
+    montar({ summary: resumo() });
 
-    await screen.findByText("Top produtos pedidos");
-    expect(screen.getAllByRole("rowheader").length).toBeGreaterThan(0);
+    await screen.findByText("Ultraled Infinity");
+    const tabelas = screen.getAllByRole("table");
+    expect(tabelas).toHaveLength(3);
+    // O rótulo é cabeçalho da linha: o leitor de tela anuncia item e valor.
+    expect(noRanking("Ultraled Infinity").getByRole("rowheader")).toHaveTextContent(
+      "Ultraled Infinity"
+    );
+  });
+
+  it("destaca quantas buscas do veículo não acharam LED, que é a lacuna da matriz", async () => {
+    montar({ summary: resumo() });
+
+    await screen.findByText("VOLKSWAGEN GOL");
+    expect(screen.getByText("sem resultado")).toBeInTheDocument();
+    expect(noRanking("VOLKSWAGEN GOL").getByText("9")).toBeInTheDocument();
+  });
+
+  it("desenha a série de buscas por dia", async () => {
+    montar({ summary: resumo() });
+
+    expect(
+      await screen.findByRole("heading", { name: "Buscas por dia" })
+    ).toBeInTheDocument();
+  });
+
+  it("explica o gráfico vazio em vez de desenhar uma linha reta", async () => {
+    montar({
+      summary: resumo({
+        searchesPerDay: [
+          { day: "2026-11-01", count: 0 },
+          { day: "2026-11-02", count: 0 },
+        ],
+      }),
+    });
+
+    expect(await screen.findByText(/Nenhuma busca de compatibilidade/)).toBeInTheDocument();
   });
 
   it("avisa quando um ranking não tem dado", async () => {
-    mockFetch({
-      summary: { ...resumo, topProducts: [], criticalStock: [], topVehicles: [] },
-    });
-    render(<Dashboard />);
+    montar({ summary: resumo({ topProducts: [], criticalStock: [], topVehicles: [] }) });
 
-    expect(await screen.findByText("Nenhum pedido registrado ainda.")).toBeInTheDocument();
-    expect(screen.getByText("Nenhuma busca registrada ainda.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Nenhum produto reservado neste período.")
+    ).toBeInTheDocument();
     expect(screen.getByText("Nenhum produto abaixo do mínimo.")).toBeInTheDocument();
   });
 
   it("mostra o erro que a API devolveu", async () => {
-    mockFetch({ error: "Sem permissão para este recurso." }, false, 403);
-    render(<Dashboard />);
+    montar({ error: "Analytics fora do ar." }, false, 500);
+
+    expect(await screen.findByText("Analytics fora do ar.")).toBeInTheDocument();
+  });
+
+  it("troca o período e pede o novo recorte à API", async () => {
+    const chamadas = mockarApi((caminho) =>
+      caminho === "/auth/me"
+        ? sessaoDe("rep")
+        : { ok: true, status: 200, corpo: { summary: resumo() } }
+    );
+
+    renderizarComProvedores(<Dashboard />, { rota: "/painel/demanda" });
+    await screen.findByText("Ultraled Infinity");
+    expect(chamadas.some((c) => c.includes("days=30"))).toBe(true);
+
+    // Radix Tabs ativa no mousedown, não no click.
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "7 dias" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("Sem permissão para este recurso.");
+      expect(chamadas.some((c) => c.includes("days=7"))).toBe(true);
     });
   });
 });

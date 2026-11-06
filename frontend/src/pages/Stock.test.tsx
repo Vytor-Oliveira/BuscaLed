@@ -1,133 +1,225 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import type { LedModel } from "../api/catalog";
 import Stock from "./Stock";
+import { mockarApi, renderizarComProvedores, sessaoDe } from "../test/render";
 
-const produtos = [
-  {
+// Os selos de situação usam o mesmo texto das opções do filtro, então toda
+// consulta por eles precisa ser escopada na lista de produtos.
+function naLista() {
+  return within(screen.getByRole("list", { name: "Produtos do catálogo" }));
+}
+
+function noResumo() {
+  return within(screen.getByRole("group", { name: "Resumo do catálogo" }));
+}
+
+function produto(sobrescreve: Partial<LedModel> = {}): LedModel {
+  return {
     id: "led-1",
-    sku: "SHK-S14-H4",
-    name: "Headlight S14 Nano",
+    sku: "SLL-140004",
+    name: "Ultraled Infinity H4",
+    description: null,
     socketCode: "H4",
     imageUrl: "/leds/SLL-140004.jpg",
-    stockQty: 2,
+    priceCents: 12990,
+    costCents: 7450,
+    unitsPerKit: 2,
+    stockQty: 12,
     stockMin: 5,
-  },
-  {
-    id: "led-2",
-    sku: "SHK-S16-H7",
-    name: "Ultraled S16",
-    socketCode: "H7",
-    imageUrl: null,
-    stockQty: 30,
-    stockMin: 5,
-  },
-];
+    ...sobrescreve,
+  };
+}
 
-function mockFetch(resposta: unknown, ok = true, status = 200) {
-  globalThis.fetch = (() =>
-    Promise.resolve({ ok, status, json: () => Promise.resolve(resposta) })) as unknown as typeof fetch;
+function montar(ledModels: LedModel[], extra?: (caminho: string, init?: RequestInit) => unknown) {
+  const chamadas = mockarApi((caminho, init) => {
+    if (caminho === "/auth/me") {
+      return sessaoDe("admin");
+    }
+    const resposta = extra?.(caminho, init);
+    if (resposta) {
+      return resposta as { ok: boolean; status: number; corpo: unknown };
+    }
+    if (caminho === "/catalog/led-models") {
+      return { ok: true, status: 200, corpo: { ledModels } };
+    }
+    return { ok: true, status: 200, corpo: {} };
+  });
+  renderizarComProvedores(<Stock />, { rota: "/painel/estoque" });
+  return chamadas;
 }
 
 describe("Stock", () => {
-  it("lista os produtos e marca os que estão abaixo do mínimo", async () => {
-    mockFetch({ ledModels: produtos });
-    render(<Stock />);
+  it("lista os produtos com SKU e encaixe", async () => {
+    montar([produto()]);
 
-    expect(await screen.findByText("Headlight S14 Nano")).toBeInTheDocument();
-    expect(screen.getByText("Ultraled S16")).toBeInTheDocument();
-    // Só o primeiro está com estoque <= mínimo.
-    expect(screen.getAllByText("Estoque baixo")).toHaveLength(1);
-    expect(screen.getByText(/1 abaixo do mínimo/)).toBeInTheDocument();
+    expect(await screen.findByText("Ultraled Infinity H4")).toBeInTheDocument();
+    expect(screen.getByText("SLL-140004")).toBeInTheDocument();
+    expect(screen.getByText("encaixe H4")).toBeInTheDocument();
   });
 
-  it("mostra a foto do produto quando existe e o ícone quando não", async () => {
-    mockFetch({ ledModels: produtos });
-    const { container } = render(<Stock />);
+  it("marca a situação de cada produto pelo mínimo", async () => {
+    montar([
+      produto(),
+      produto({ id: "led-2", sku: "SLL-2", name: "Abaixo", stockQty: 3, stockMin: 5 }),
+      produto({ id: "led-3", sku: "SLL-3", name: "Zerado", stockQty: 0, stockMin: 5 }),
+    ]);
 
-    await screen.findByText("Headlight S14 Nano");
-    expect(container.querySelector('img[src="/leds/SLL-140004.jpg"]')).toBeInTheDocument();
-
-    const semFoto = screen.getByText("Ultraled S16").closest("li");
-    expect(semFoto?.querySelector("img")).toBeNull();
-    expect(semFoto?.querySelector("svg")).toBeInTheDocument();
+    await screen.findByText("Zerado");
+    expect(naLista().getByText("Em estoque")).toBeInTheDocument();
+    expect(naLista().getByText("Abaixo do mínimo")).toBeInTheDocument();
+    expect(naLista().getByText("Esgotado")).toBeInTheDocument();
   });
 
-  it("oferece um campo de reposição por produto", async () => {
-    mockFetch({ ledModels: produtos });
-    render(<Stock />);
+  it("resume o catálogo em total, abaixo do mínimo e esgotados", async () => {
+    montar([
+      produto(),
+      produto({ id: "led-2", sku: "SLL-2", name: "Abaixo", stockQty: 3, stockMin: 5 }),
+      produto({ id: "led-3", sku: "SLL-3", name: "Zerado", stockQty: 0, stockMin: 5 }),
+    ]);
 
-    expect(
-      await screen.findByLabelText("Quantidade a repor de SHK-S14-H4")
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Quantidade a repor de SHK-S16-H7")).toBeInTheDocument();
+    await screen.findByText("Zerado");
+    expect(noResumo().getByText("Produtos no catálogo").nextElementSibling).toHaveTextContent("3");
+    expect(noResumo().getByText("Em alerta").nextElementSibling).toHaveTextContent("1");
+    expect(noResumo().getByText("Esgotados").nextElementSibling).toHaveTextContent("1");
   });
 
-  it("cadastra um produto novo e põe na lista em ordem de SKU", async () => {
-    const criado = {
-      id: "led-9",
-      sku: "SHK-S11-H11",
-      name: "Fog H11",
-      socketCode: "H11",
-      stockQty: 10,
-      stockMin: 2,
-    };
-    globalThis.fetch = ((_url: string, init?: RequestInit) =>
-      Promise.resolve({
-        ok: true,
-        status: init?.method === "POST" ? 201 : 200,
-        json: () =>
-          Promise.resolve(init?.method === "POST" ? { ledModel: criado } : { ledModels: produtos }),
-      })) as unknown as typeof fetch;
+  it("mostra a foto do produto quando existe", async () => {
+    montar([produto()]);
 
-    render(<Stock />);
-    await screen.findByText("Headlight S14 Nano");
-
-    fireEvent.click(screen.getByRole("button", { name: /Adicionar produto/ }));
-    fireEvent.change(screen.getByLabelText("SKU"), { target: { value: "SHK-S11-H11" } });
-    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Fog H11" } });
-    fireEvent.change(screen.getByLabelText("Encaixe"), { target: { value: "h11" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar produto" }));
-
-    expect(await screen.findByText("Fog H11")).toBeInTheDocument();
+    expect(await screen.findByAltText("Foto do Ultraled Infinity H4")).toBeInTheDocument();
   });
 
-  it("mostra o 409 de SKU duplicado", async () => {
-    globalThis.fetch = ((_url: string, init?: RequestInit) =>
-      Promise.resolve({
-        ok: init?.method !== "POST",
-        status: init?.method === "POST" ? 409 : 200,
-        json: () =>
-          Promise.resolve(
-            init?.method === "POST" ? { error: "SKU já cadastrado." } : { ledModels: produtos }
-          ),
-      })) as unknown as typeof fetch;
+  it("filtra por nome ou SKU", async () => {
+    montar([
+      produto(),
+      produto({ id: "led-2", sku: "SLL-999", name: "Outro produto" }),
+    ]);
 
-    render(<Stock />);
-    await screen.findByText("Headlight S14 Nano");
-
-    fireEvent.click(screen.getByRole("button", { name: /Adicionar produto/ }));
-    fireEvent.change(screen.getByLabelText("SKU"), { target: { value: "SHK-S14-H4" } });
-    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Repetido" } });
-    fireEvent.change(screen.getByLabelText("Encaixe"), { target: { value: "H4" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar produto" }));
+    await screen.findByText("Ultraled Infinity H4");
+    fireEvent.change(screen.getByLabelText(/Buscar por nome ou SKU/i), {
+      target: { value: "SLL-999" },
+    });
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("SKU já cadastrado.");
+      expect(screen.queryByText("Ultraled Infinity H4")).not.toBeInTheDocument();
     });
+    expect(screen.getByText("Outro produto")).toBeInTheDocument();
+  });
+
+  it("abre a reposição e mostra o total resultante antes de confirmar", async () => {
+    montar([produto()]);
+
+    await screen.findByText("Ultraled Infinity H4");
+    fireEvent.click(screen.getByRole("button", { name: "Repor" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    // 12 + 10 do padrão.
+    expect(screen.getByText("22")).toBeInTheDocument();
+  });
+
+  it("envia a reposição com a quantidade escolhida", async () => {
+    const chamadas = montar([produto()], (caminho) =>
+      caminho === "/stock/led-1/restock"
+        ? {
+            ok: true,
+            status: 200,
+            corpo: {
+              stock: {
+                ledModelId: "led-1",
+                sku: "SLL-140004",
+                name: "Ultraled Infinity H4",
+                stockQty: 62,
+                stockMin: 5,
+                belowMinimum: false,
+              },
+            },
+          }
+        : undefined
+    );
+
+    await screen.findByText("Ultraled Infinity H4");
+    fireEvent.click(screen.getByRole("button", { name: "Repor" }));
+    await screen.findByRole("dialog");
+
+    fireEvent.click(screen.getByRole("button", { name: "50 un." }));
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar 50/ }));
+
+    await waitFor(() => {
+      expect(chamadas).toContain("POST /stock/led-1/restock");
+    });
+  });
+
+  it("cadastra um produto novo", async () => {
+    const chamadas = montar([], (caminho, init) =>
+      caminho === "/catalog/led-models" && init?.method === "POST"
+        ? {
+            ok: true,
+            status: 201,
+            corpo: { ledModel: produto({ id: "led-novo", name: "LED novo" }) },
+          }
+        : undefined
+    );
+
+    await screen.findByText("O catálogo está vazio");
+    fireEvent.click(screen.getByRole("button", { name: /Cadastrar produto/ }));
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "LED novo" } });
+    fireEvent.change(screen.getByLabelText("SKU"), { target: { value: "SLL-NOVO" } });
+    fireEvent.change(screen.getByLabelText("Encaixe"), { target: { value: "H7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar produto" }));
+
+    await waitFor(() => {
+      expect(chamadas).toContain("POST /catalog/led-models");
+    });
+  });
+
+  it("cobra os campos obrigatórios antes de enviar", async () => {
+    const chamadas = montar([]);
+
+    await screen.findByText("O catálogo está vazio");
+    fireEvent.click(screen.getByRole("button", { name: /Cadastrar produto/ }));
+    await screen.findByRole("dialog");
+
+    fireEvent.click(screen.getByRole("button", { name: "Criar produto" }));
+
+    expect(await screen.findByText("Informe o nome do produto.")).toBeInTheDocument();
+    expect(chamadas.filter((c) => c === "POST /catalog/led-models")).toHaveLength(0);
+  });
+
+  it("põe o 409 de SKU duplicado no próprio campo", async () => {
+    montar([], (caminho, init) =>
+      caminho === "/catalog/led-models" && init?.method === "POST"
+        ? { ok: false, status: 409, corpo: { error: "SKU já cadastrado." } }
+        : undefined
+    );
+
+    await screen.findByText("O catálogo está vazio");
+    fireEvent.click(screen.getByRole("button", { name: /Cadastrar produto/ }));
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "LED" } });
+    fireEvent.change(screen.getByLabelText("SKU"), { target: { value: "SLL-140004" } });
+    fireEvent.change(screen.getByLabelText("Encaixe"), { target: { value: "H4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar produto" }));
+
+    expect(await screen.findByText("SKU já cadastrado.")).toBeInTheDocument();
   });
 
   it("mostra o erro que a API devolveu", async () => {
-    mockFetch({ error: "Sem permissão para este recurso." }, false, 403);
-    render(<Stock />);
+    mockarApi((caminho) =>
+      caminho === "/auth/me"
+        ? sessaoDe("admin")
+        : { ok: false, status: 500, corpo: { error: "Catálogo fora do ar." } }
+    );
+    renderizarComProvedores(<Stock />, { rota: "/painel/estoque" });
 
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("Sem permissão para este recurso.");
-    });
+    expect(await screen.findByText("Catálogo fora do ar.")).toBeInTheDocument();
   });
 
   it("avisa quando o catálogo está vazio", async () => {
-    mockFetch({ ledModels: [] });
-    render(<Stock />);
+    montar([]);
 
-    expect(await screen.findByText("Nenhum produto cadastrado.")).toBeInTheDocument();
+    expect(await screen.findByText("O catálogo está vazio")).toBeInTheDocument();
   });
 });

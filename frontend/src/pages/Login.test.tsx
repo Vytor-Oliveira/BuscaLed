@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../auth/AuthContext";
 import Login from "./Login";
@@ -25,13 +25,14 @@ function mockRotas(resolver: (url: string, init?: RequestInit) => unknown): stri
 
 const semSessao = { ok: false, status: 401, corpo: { error: "Não autenticado." } };
 
-function montar() {
+function montar(busca = "") {
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={["/login"]}>
+      <MemoryRouter initialEntries={[`/login${busca}`]}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/painel/tickets" element={<p>Fila de Pedidos</p>} />
+          <Route path="/garagem" element={<p>Minha Garagem</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>
@@ -58,13 +59,91 @@ describe("Login", () => {
     expect(screen.getByRole("button", { name: "Entrar na minha conta" })).toBeInTheDocument();
   });
 
-  // O cadastro ainda não existe nesta tela; a aba fica visível mas inerte,
-  // em vez de prometer um caminho que não leva a lugar nenhum.
-  it("deixa a aba de cadastro desabilitada", async () => {
+  it("troca para a aba de cadastro e pede o nome", async () => {
     mockRotas(() => semSessao);
     montar();
 
-    expect(await screen.findByRole("tab", { name: "Criar conta" })).toBeDisabled();
+    fireEvent.click(await screen.findByRole("tab", { name: "Criar conta" }));
+
+    expect(screen.getByLabelText("Nome")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar minha conta" })).toBeInTheDocument();
+  });
+
+  it("cadastra e volta para a aba de entrar avisando sobre a confirmação", async () => {
+    const chamadas = mockRotas((url) =>
+      url.includes("/auth/register")
+        ? {
+            ok: true,
+            status: 201,
+            corpo: { message: "Cadastro realizado. Confira seu e-mail para confirmar a conta." },
+          }
+        : semSessao
+    );
+
+    montar();
+    fireEvent.click(await screen.findByRole("tab", { name: "Criar conta" }));
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Carlos Silva" } });
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "c@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "senha-forte-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
+
+    expect(await screen.findByText(/Confira seu e-mail/)).toBeInTheDocument();
+    expect(chamadas).toContain("POST /auth/register");
+    // O cadastro nao loga: a conta so vale depois de confirmar o e-mail.
+    expect(screen.getByRole("button", { name: "Entrar na minha conta" })).toBeInTheDocument();
+    expect(screen.queryByText("Fila de Pedidos")).not.toBeInTheDocument();
+  });
+
+  it("pede o link de redefinição com o e-mail digitado", async () => {
+    const chamadas = mockRotas((url) =>
+      url.includes("/auth/forgot-password")
+        ? {
+            ok: true,
+            status: 200,
+            corpo: {
+              message: "Se houver uma conta com esse e-mail, enviamos o link de redefinição.",
+            },
+          }
+        : semSessao
+    );
+
+    montar();
+    fireEvent.change(await screen.findByLabelText("E-mail"), {
+      target: { value: "c@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Esqueci minha senha" }));
+
+    expect(await screen.findByText(/Se houver uma conta/)).toBeInTheDocument();
+    expect(chamadas).toContain("POST /auth/forgot-password");
+  });
+
+  it("cobra o e-mail antes de pedir o link", async () => {
+    const chamadas = mockRotas(() => semSessao);
+    montar();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Esqueci minha senha" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Informe seu e-mail");
+    expect(chamadas).not.toContain("POST /auth/forgot-password");
+  });
+
+  it("mostra o 409 de e-mail já cadastrado", async () => {
+    mockRotas((url) =>
+      url.includes("/auth/register")
+        ? { ok: false, status: 409, corpo: { error: "E-mail já cadastrado." } }
+        : semSessao
+    );
+
+    montar();
+    fireEvent.click(await screen.findByRole("tab", { name: "Criar conta" }));
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Carlos" } });
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "c@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "senha-forte-123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("E-mail já cadastrado.");
+    });
   });
 
   it("envia as credenciais e leva para a fila ao entrar", async () => {
@@ -109,5 +188,66 @@ describe("Login", () => {
     montar();
 
     expect(await screen.findByText("Fila de Pedidos")).toBeInTheDocument();
+  });
+
+  // O painel é do representante. Mandar o cliente pra lá fazia o RequireRole
+  // responder "sem permissão" como primeira tela depois de ele entrar.
+  it("leva o cliente para a garagem, não para o painel", async () => {
+    const cliente = { ...perfil, role: "user" as const };
+    let logado = false;
+    mockRotas((url) => {
+      if (url.includes("/auth/login")) {
+        logado = true;
+        return { ok: true, status: 200, corpo: {} };
+      }
+      return logado ? { ok: true, status: 200, corpo: { user: cliente } } : semSessao;
+    });
+
+    montar();
+    await screen.findByLabelText("E-mail");
+    preencher("cliente@example.com", "senha-forte-123");
+    screen.getByRole("button", { name: "Entrar na minha conta" }).click();
+
+    expect(await screen.findByText("Minha Garagem")).toBeInTheDocument();
+    expect(screen.queryByText("Fila de Pedidos")).not.toBeInTheDocument();
+  });
+
+  // Acontece de verdade quando o cookie de sessão é recusado: o POST passa e o
+  // GET /auth/me seguinte devolve 401. Antes a tela ficava parada, sem dizer nada.
+  it("avisa quando entra mas não consegue carregar o perfil", async () => {
+    mockRotas((url) =>
+      url.includes("/auth/login") ? { ok: true, status: 200, corpo: {} } : semSessao
+    );
+
+    montar();
+    await screen.findByLabelText("E-mail");
+    preencher("rep@example.com", "senha-forte-123");
+    screen.getByRole("button", { name: "Entrar na minha conta" }).click();
+
+    expect(await screen.findByText(/não foi possível carregar seu perfil/i)).toBeInTheDocument();
+    expect(screen.queryByText("Fila de Pedidos")).not.toBeInTheDocument();
+  });
+
+  it("manda o cliente com sessão ativa para a garagem", async () => {
+    mockRotas(() => ({ ok: true, status: 200, corpo: { user: { ...perfil, role: "user" } } }));
+    montar();
+
+    expect(await screen.findByText("Minha Garagem")).toBeInTheDocument();
+  });
+
+  // O /auth/confirm redireciona pra cá: o resultado tem que aparecer como
+  // mensagem na tela, não como JSON do backend.
+  it("mostra o resultado da confirmação de e-mail que vem na query", async () => {
+    mockRotas(() => semSessao);
+    montar("?confirmacao=ok");
+
+    expect(await screen.findByText(/E-mail confirmado/)).toBeInTheDocument();
+  });
+
+  it("explica o link de confirmação expirado", async () => {
+    mockRotas(() => semSessao);
+    montar("?confirmacao=invalida");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("inválido ou já expirou");
   });
 });

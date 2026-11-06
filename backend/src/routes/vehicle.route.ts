@@ -3,16 +3,19 @@ import { z } from "zod";
 import { prisma } from "../db/prisma";
 import { requireAuth } from "../middleware/auth.middleware";
 import { PrismaVehicleRepository } from "../repositories/vehicle.repository";
-import { PlateNotFoundError, PlateServiceTimeoutError } from "../services/plate/types";
-import { HttpPlateService } from "../services/plate/plate.service.http";
+import { plateLookupService } from "../services/plate/plate.bootstrap";
+import {
+  PlateLookupLimitExceededError,
+  PlateNotFoundError,
+  PlateProviderUnavailableError,
+  PlateServiceTimeoutError,
+} from "../services/plate/types";
 import { GarageVehicleNotFoundError, PlateServiceUnavailableError } from "../services/vehicle/types";
 import { VehicleService } from "../services/vehicle/vehicle.service";
 
 export const vehicleRouter = Router();
 
-const apiplacasToken = process.env.APIPLACAS_TOKEN;
-const plateService = apiplacasToken ? new HttpPlateService(apiplacasToken) : null;
-const vehicleService = new VehicleService(new PrismaVehicleRepository(prisma), plateService);
+const vehicleService = new VehicleService(new PrismaVehicleRepository(prisma), plateLookupService);
 
 const currentYear = new Date().getFullYear();
 
@@ -66,6 +69,19 @@ vehicleRouter.post("/", async (req, res, next) => {
     }
     if (error instanceof PlateServiceUnavailableError) {
       res.status(503).json({ error: error.message });
+      return;
+    }
+    if (error instanceof PlateLookupLimitExceededError) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
+    if (error instanceof PlateProviderUnavailableError) {
+      // eslint-disable-next-line no-console
+      console.error("Consulta de placa indisponível:", error.motivo);
+      res.status(503).json({
+        error:
+          "Consulta de placa indisponível no momento. Cadastre o veículo por marca/modelo/ano.",
+      });
       return;
     }
     next(error);

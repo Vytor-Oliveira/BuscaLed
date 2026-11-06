@@ -47,6 +47,15 @@ describe("PainelLayout", () => {
 
   // RN06 — estoque e catálogo são exclusivos do admin, e o backend também
   // responde 403 para o representante nessas rotas.
+  // O selo era a string ADMIN fixa: o representante aparecia como admin.
+  it("mostra o papel de quem está logado, não ADMIN fixo", async () => {
+    mockSessao("rep");
+    montar();
+
+    expect(await screen.findByText("REPRESENTANTE")).toBeInTheDocument();
+    expect(screen.queryByText("ADMIN")).not.toBeInTheDocument();
+  });
+
   it("esconde o Catálogo do representante", async () => {
     mockSessao("rep");
     montar();

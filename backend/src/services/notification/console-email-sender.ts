@@ -17,6 +17,14 @@ export class ConsoleEmailSender implements EmailSender {
     console.log(`[ConsoleEmailSender] Confirmação de e-mail para ${email}: ${link}`);
   }
 
+  async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+    const baseUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+    const link = `${baseUrl}/redefinir-senha?token=${token}`;
+
+    // eslint-disable-next-line no-console
+    console.log(`[ConsoleEmailSender] Redefinicao de senha para ${email}: ${link}`);
+  }
+
   async sendLowStockAlert(to: string, info: StockAlertInfo): Promise<void> {
     // eslint-disable-next-line no-console
     console.log(

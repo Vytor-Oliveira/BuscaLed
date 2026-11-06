@@ -7,7 +7,10 @@ import {
   completeTicket,
   confirmTicket,
   listTickets,
+  numeroTicket,
 } from "../api/tickets";
+
+export { numeroTicket };
 import { IconeDownload, IconeLapis, IconeWhatsApp } from "../components/Icones";
 import { ModalTrocaProduto } from "../components/ModalTrocaProduto";
 
@@ -59,12 +62,6 @@ export function montarMensagem(ticket: Ticket): string {
   ].join(" ");
 }
 
-// O backend identifica o pedido por UUID; o RFC mostra um número curto. Até
-// existir sequencial no banco, o sufixo do próprio id serve de rótulo estável.
-export function numeroTicket(id: string): string {
-  return `TKT-${id.replace(/-/g, "").slice(-4).toUpperCase()}`;
-}
-
 function formatarData(iso: string): string {
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, "0");
@@ -97,6 +94,7 @@ export default function TicketQueue() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filtro, setFiltro] = useState<TicketStatus | undefined>(undefined);
   const [periodo, setPeriodo] = useState(0);
+  const [produto, setProduto] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [agindoEm, setAgindoEm] = useState<string | null>(null);
@@ -122,14 +120,23 @@ export default function TicketQueue() {
     void carregar(filtro);
   }, [carregar, filtro]);
 
-  // O backend filtra por status; o período é recorte local sobre o que veio.
+  // Opções do filtro de produto saem do que está na fila, não do catálogo
+  // inteiro — filtrar por produto que ninguém pediu não serve pra nada.
+  const produtosNaFila = useMemo(() => {
+    const nomes = new Set<string>();
+    tickets.forEach((t) => t.items.forEach((i) => nomes.add(i.ledModelName)));
+    return [...nomes].sort((a, b) => a.localeCompare(b));
+  }, [tickets]);
+
+  // O backend filtra por status; período e produto são recorte local.
   const visiveis = useMemo(() => {
-    if (periodo === 0) {
-      return tickets;
-    }
-    const corte = Date.now() - periodo * 24 * 60 * 60 * 1000;
-    return tickets.filter((t) => new Date(t.createdAt).getTime() >= corte);
-  }, [tickets, periodo]);
+    const corte = periodo === 0 ? 0 : Date.now() - periodo * 24 * 60 * 60 * 1000;
+    return tickets.filter((t) => {
+      const dentroDoPeriodo = periodo === 0 || new Date(t.createdAt).getTime() >= corte;
+      const temProduto = produto === "" || t.items.some((i) => i.ledModelName === produto);
+      return dentroDoPeriodo && temProduto;
+    });
+  }, [tickets, periodo, produto]);
 
   const ACOES = { confirmar: confirmTicket, concluir: completeTicket, cancelar: cancelTicket };
 
@@ -193,6 +200,20 @@ export default function TicketQueue() {
           ))}
         </div>
 
+        <select
+          className="chip chip-select"
+          aria-label="Filtrar por produto"
+          value={produto}
+          onChange={(e) => setProduto(e.target.value)}
+        >
+          <option value="">Todos produtos</option>
+          {produtosNaFila.map((nome) => (
+            <option key={nome} value={nome}>
+              {nome}
+            </option>
+          ))}
+        </select>
+
         <div role="group" aria-label="Filtrar por status" className="filtros">
           {FILTROS.map((opcao) => (
             <button
@@ -243,16 +264,23 @@ export default function TicketQueue() {
 
                   return (
                     <tr key={ticket.id}>
-                      <td className="celula-ticket">{numeroTicket(ticket.id)}</td>
+                      <td className="celula-ticket" data-rotulo="#">{numeroTicket(ticket.id)}</td>
 
-                      <td className="celula-cliente">
+                      <td className="celula-cliente" data-rotulo="Cliente">
                         <strong>{ticket.userEmail}</strong>
                         {ticket.customerPhone && <small>{ticket.customerPhone}</small>}
                       </td>
 
-                      <td className="aviso-dado-ausente">—</td>
+                      <td
+                        className={ticket.vehicle ? undefined : "aviso-dado-ausente"}
+                        data-rotulo="Veículo"
+                      >
+                        {ticket.vehicle
+                          ? `${ticket.vehicle.make} ${ticket.vehicle.model} ${ticket.vehicle.year}`
+                          : "—"}
+                      </td>
 
-                      <td>
+                      <td data-rotulo="Produto(s)">
                         {ticket.items.map((item) => (
                           <div key={item.id}>
                             {item.quantity}× {item.ledModelName}
@@ -263,15 +291,15 @@ export default function TicketQueue() {
                         ))}
                       </td>
 
-                      <td>{formatarData(ticket.createdAt)}</td>
+                      <td data-rotulo="Data">{formatarData(ticket.createdAt)}</td>
 
-                      <td>
+                      <td data-rotulo="Status">
                         <span className={`selo selo-${ticket.status.toLowerCase()}`}>
                           {ROTULO_STATUS[ticket.status]}
                         </span>
                       </td>
 
-                      <td>
+                      <td data-rotulo="Ações">
                         <div className="celula-acoes">
                           {link && (
                             <a

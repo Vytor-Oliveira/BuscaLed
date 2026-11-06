@@ -16,6 +16,7 @@ describe("Fila de notificações (integração real — Bull + Redis, sem mocks 
   function createSpySender(): EmailSender & { [K in keyof EmailSender]: jest.Mock } {
     return {
       sendConfirmationEmail: jest.fn().mockResolvedValue(undefined),
+      sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendLowStockAlert: jest.fn().mockResolvedValue(undefined),
       sendNewTicketNotification: jest.fn().mockResolvedValue(undefined),
       sendTicketEditedNotification: jest.fn().mockResolvedValue(undefined),

@@ -14,6 +14,8 @@ export interface LedModelRecord {
   sku: string;
   name: string;
   socketCode: string;
+  // Nulo enquanto o produto não tem foto — o painel cai no ícone.
+  imageUrl: string | null;
   stockQty: number;
   stockMin: number;
 }

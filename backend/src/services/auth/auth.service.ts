@@ -19,6 +19,8 @@ import {
 
 const BCRYPT_SALT_ROUNDS = 12; // RFC — Seção 6.1 (OWASP A02)
 const CONFIRMATION_TOKEN_EXPIRES_MS = 24 * 60 * 60 * 1000; // 24h
+// Janela curta: redefinir senha é mais sensível que confirmar e-mail.
+const PASSWORD_RESET_TOKEN_EXPIRES_MS = 60 * 60 * 1000; // 1h
 const PRISMA_UNIQUE_CONSTRAINT_ERROR_CODE = "P2002";
 
 // E-mail nunca deve diferenciar maiúsculas/minúsculas — sem isso,
@@ -83,6 +85,49 @@ export class AuthService {
       emailVerifiedAt: new Date(),
       emailConfirmationToken: null,
       emailConfirmationExpiresAt: null,
+    });
+  }
+
+  /**
+   * RF02 — pedido de redefinição. Responde igual existindo ou não a conta:
+   * dizer "e-mail não cadastrado" entregaria quem tem conta no sistema.
+   */
+  async requestPasswordReset(rawEmail: string): Promise<void> {
+    const email = normalizeEmail(rawEmail);
+    const user = await this.userRepository.findByEmail(email);
+
+    // Conta de Google não tem senha para redefinir.
+    if (!user || !user.passwordHash) {
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    await this.userRepository.update(user.id, {
+      passwordResetToken: token,
+      passwordResetExpiresAt: new Date(Date.now() + PASSWORD_RESET_TOKEN_EXPIRES_MS),
+    });
+
+    await this.emailSender.sendPasswordResetEmail(email, token);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.userRepository.findByPasswordResetToken(token);
+
+    if (
+      !user ||
+      !user.passwordResetExpiresAt ||
+      user.passwordResetExpiresAt.getTime() < Date.now()
+    ) {
+      throw new InvalidOrExpiredTokenError();
+    }
+
+    // O token é de uso único: some junto com a troca da senha. Quem redefiniu
+    // provou ter acesso ao e-mail, então a conta já fica confirmada.
+    await this.userRepository.update(user.id, {
+      passwordHash: await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS),
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
+      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
     });
   }
 

@@ -2,6 +2,7 @@ import "dotenv/config";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
+import { closeRedis } from "../../db/redis";
 import { closeNotificationQueue } from "../../queue/notification.bootstrap";
 
 const app = createApp();
@@ -40,7 +41,10 @@ describe("Vehicle routes / Garagem Virtual (integração real — Postgres, sem 
     }
     await prisma.$disconnect();
     await closeNotificationQueue();
-  });
+    await closeRedis();
+    // Limpeza em tabelas grandes: 5s (padrao do Jest) estoura com o
+    // container frio e deixa o CI vermelho sem motivo real.
+  }, 30_000);
 
   it("bloqueia acesso sem autenticação", async () => {
     const res = await request(app).get("/garage");

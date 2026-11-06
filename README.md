@@ -110,9 +110,40 @@ Frontend (React + Vite) ── requisições REST ──▶ Backend API (Node.js
 | `tickets` / `ticket_items` | Pedido consolidado e seus itens; registra produto original e substituto quando editado |
 | `search_history` | Histórico analítico de buscas — sem dados de placa |
 
+### Faixas de ano da matriz de compatibilidade
+
+A coluna `ANO` da planilha da Shocklight usa cinco notações. O `>` significa
+**"a partir de"** em qualquer posição; quem marca **"até"** é o `<`:
+
+| Na planilha | Significado | Gravado como | Linhas |
+|---|---|---|---|
+| `AAAA` | só aquele ano | `yearStart = AAAA`, `yearEnd = AAAA` | 329 |
+| `AAAA > BBBB` | de AAAA a BBBB | `yearStart = AAAA`, `yearEnd = BBBB` | 2100 |
+| `AAAA >` | a partir de AAAA (ainda em produção) | `yearStart = AAAA`, `yearEnd = 9999` | 46 |
+| `> AAAA` | a partir de AAAA (mesmo que `AAAA >`) | `yearStart = AAAA`, `yearEnd = 9999` | 120 |
+| `< AAAA` | até AAAA | `yearStart = 0`, `yearEnd = AAAA` | 1 |
+
+Ler `>` como "até" foi testado e descartado: as 120 linhas `> AAAA` são carros
+recentes (Audi R8 V10 Plus, Volvo XC60, Land Rover Defender TDi), e sob essa
+leitura um Passat 1979 casava com o `PASSAT HIGHLINE > 2016` e recebia o farol
+dele — resposta errada, pior que não encontrar.
+
+`0` e `9999` são sentinelas de faixa aberta, não anos. A busca casa por
+`yearStart <= ano && yearEnd >= ano`, então a sentinela abre um lado sem virar
+curinga: um carro 2010 não casa com `2015 >`, e um de 1979 não casa com `> 2016`.
+
+Os seletores de Marca/Modelo/Ano recortam a faixa na janela plausível (1950 até o
+ano-modelo seguinte) e mostram a faixa aberta como "até 1996" ou "2016 em diante",
+em vez de expor as sentinelas ao usuário.
+
+O importador não corrige nada em silêncio: valor fora dessas formas, ou ano fora de
+1950–2100, é recusado e sai no relatório com a linha e o valor bruto, para correção
+na planilha de origem. Sem `--allow-rejects`, a importação termina com código 1.
+
 ## Regras de negócio principais
 
-- A placa do veículo não é armazenada em nenhuma tabela, log ou cache (RN02)
+- A placa do veículo nunca é gravada vinculada a um usuário, sessão ou à Garagem Virtual (RN02). Existe um cache anônimo (Redis, `placa → marca/modelo/ano`, TTL 90 dias) só para evitar reconsultar a API paga pela mesma placa — sem nenhuma referência a conta ou histórico de navegação
+- A consulta de placa exige login e tem limite de 5 consultas gratuitas por conta (decisão de custo — a API é paga por consulta); repetir uma placa já consultada usa o cache e não conta no limite
 - O ticket de reserva não constitui venda confirmada nem obrigação financeira (RN04)
 - O estoque só é decrementado quando o representante marca o ticket como Concluído (RN12)
 - A substituição de produto pelo representante deve respeitar o mesmo tipo de encaixe (RN11)

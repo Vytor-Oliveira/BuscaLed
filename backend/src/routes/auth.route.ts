@@ -3,10 +3,10 @@ import rateLimit from "express-rate-limit";
 import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
+import { notificationEmailSender } from "../queue/notification.bootstrap";
 import { requireAuth } from "../middleware/auth.middleware";
 import { PrismaUserRepository } from "../repositories/user.repository";
 import { AuthService } from "../services/auth/auth.service";
-import { ConsoleEmailSender } from "../services/notification/console-email-sender";
 import { AuthTokens } from "../services/auth/types";
 import {
   EmailAlreadyRegisteredError,
@@ -19,9 +19,12 @@ import {
 export const authRouter = Router();
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "";
+// Passa pela mesma fila dos outros módulos. Antes era um ConsoleEmailSender
+// fixo aqui, de quando a fila ainda não existia (M2): confirmação de conta e
+// redefinição de senha nunca saíam de verdade, mesmo com provedor configurado.
 const authService = new AuthService(
   new PrismaUserRepository(prisma),
-  new ConsoleEmailSender(),
+  notificationEmailSender,
   new OAuth2Client()
 );
 
@@ -83,6 +86,15 @@ const googleSchema = z.object({
   idToken: z.string().min(1, "idToken ausente."),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email("E-mail inválido."),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Token ausente."),
+  password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
+});
+
 authRouter.post("/register", registrationRateLimiter, async (req, res, next) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -102,16 +114,62 @@ authRouter.post("/register", registrationRateLimiter, async (req, res, next) => 
   }
 });
 
+// Este link sai num e-mail e e aberto no navegador, nao consumido por codigo:
+// responder JSON deixava a pessoa olhando um blob. Quem mostra o resultado e a
+// tela de login, que e o proximo passo dela de qualquer forma.
+function telaDeLogin(resultado: "ok" | "invalida"): string {
+  const base = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  return `${base}/login?confirmacao=${resultado}`;
+}
+
 authRouter.get("/confirm", async (req, res, next) => {
   const { token } = req.query;
   if (typeof token !== "string") {
-    res.status(400).json({ error: "Token de confirmação ausente." });
+    res.redirect(telaDeLogin("invalida"));
     return;
   }
 
   try {
     await authService.confirmEmail(token);
-    res.json({ message: "E-mail confirmado com sucesso." });
+    res.redirect(telaDeLogin("ok"));
+  } catch (error) {
+    if (error instanceof InvalidOrExpiredTokenError) {
+      res.redirect(telaDeLogin("invalida"));
+      return;
+    }
+    next(error);
+  }
+});
+
+// Mesma resposta existindo ou não a conta: a mensagem não pode servir para
+// descobrir quem tem cadastro.
+authRouter.post("/forgot-password", registrationRateLimiter, async (req, res, next) => {
+  const parsed = forgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "E-mail inválido." });
+    return;
+  }
+
+  try {
+    await authService.requestPasswordReset(parsed.data.email);
+    res.json({
+      message: "Se houver uma conta com esse e-mail, enviamos o link de redefinição.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post("/reset-password", registrationRateLimiter, async (req, res, next) => {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "A senha precisa ter pelo menos 8 caracteres." });
+    return;
+  }
+
+  try {
+    await authService.resetPassword(parsed.data.token, parsed.data.password);
+    res.json({ message: "Senha redefinida. Faça login com a senha nova." });
   } catch (error) {
     if (error instanceof InvalidOrExpiredTokenError) {
       res.status(400).json({ error: error.message });

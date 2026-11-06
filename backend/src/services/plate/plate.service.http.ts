@@ -1,6 +1,7 @@
 import {
   PlateInfo,
   PlateNotFoundError,
+  PlateProviderUnavailableError,
   PlateService,
   PlateServiceTimeoutError,
 } from "./types";
@@ -51,7 +52,7 @@ export class HttpPlateService implements PlateService {
       }
 
       if (!response.ok) {
-        throw new Error(`PuxaPlaca respondeu com status ${response.status}`);
+        throw new PlateProviderUnavailableError(`status ${response.status}`);
       }
 
       const data = (await response.json()) as PuxaPlacaResponse;
@@ -71,7 +72,13 @@ export class HttpPlateService implements PlateService {
       if (error instanceof DOMException && error.name === "AbortError") {
         throw new PlateServiceTimeoutError();
       }
-      throw error;
+      if (error instanceof PlateNotFoundError || error instanceof PlateProviderUnavailableError) {
+        throw error;
+      }
+      // Rede caiu, DNS falhou, JSON veio quebrado: ainda é o fornecedor, não nós.
+      throw new PlateProviderUnavailableError(
+        error instanceof Error ? error.message : String(error)
+      );
     } finally {
       clearTimeout(timeout);
     }

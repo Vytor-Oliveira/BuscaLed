@@ -23,6 +23,7 @@ export interface TicketCancelledInfo {
 
 export interface EmailSender {
   sendConfirmationEmail(email: string, token: string): Promise<void>;
+  sendPasswordResetEmail(email: string, token: string): Promise<void>;
   sendLowStockAlert(to: string, info: StockAlertInfo): Promise<void>;
   sendNewTicketNotification(to: string, info: NewTicketInfo): Promise<void>;
   sendTicketEditedNotification(to: string, info: TicketEditedInfo): Promise<void>;

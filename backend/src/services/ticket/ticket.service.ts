@@ -3,6 +3,7 @@ import { UserRole } from "../auth/jwt";
 import { EmailSender } from "../notification/types";
 import { StockService } from "../stock/stock.service";
 import {
+  CreateTicketExtras,
   CreateTicketItemInput,
   EmptyTicketError,
   IncompatibleSocketError,
@@ -28,7 +29,7 @@ export class TicketService {
   async createTicket(
     userId: string,
     items: CreateTicketItemInput[],
-    customerPhone?: string
+    extras?: CreateTicketExtras
   ): Promise<TicketRecord> {
     if (items.length === 0) {
       throw new EmptyTicketError();
@@ -40,7 +41,7 @@ export class TicketService {
       throw new LedModelNotFoundForTicketError(items[missingIndex].ledModelId);
     }
 
-    const ticket = await this.repository.create(userId, items, customerPhone);
+    const ticket = await this.repository.create(userId, items, extras);
     await this.notify(() =>
       this.emailSender.sendNewTicketNotification(this.repEmail, {
         ticketId: ticket.id,

@@ -40,6 +40,13 @@ export class PrismaUserRepository implements UserRepository {
     return user ? this.toRecord(user) : null;
   }
 
+  async findByPasswordResetToken(token: string): Promise<UserRecord | null> {
+    const user = await this.prisma.user.findFirst({
+      where: { passwordResetToken: token },
+    });
+    return user ? this.toRecord(user) : null;
+  }
+
   async create(input: CreateUserInput): Promise<UserRecord> {
     const user = await this.prisma.user.create({
       data: {
@@ -51,6 +58,8 @@ export class PrismaUserRepository implements UserRepository {
         emailVerifiedAt: input.emailVerifiedAt ?? null,
         emailConfirmationToken: input.emailConfirmationToken ?? null,
         emailConfirmationExpiresAt: input.emailConfirmationExpiresAt ?? null,
+        passwordResetToken: input.passwordResetToken ?? null,
+        passwordResetExpiresAt: input.passwordResetExpiresAt ?? null,
       },
     });
     return this.toRecord(user);
@@ -71,6 +80,12 @@ export class PrismaUserRepository implements UserRepository {
         ...(patch.emailConfirmationExpiresAt !== undefined && {
           emailConfirmationExpiresAt: patch.emailConfirmationExpiresAt,
         }),
+        ...(patch.passwordResetToken !== undefined && {
+          passwordResetToken: patch.passwordResetToken,
+        }),
+        ...(patch.passwordResetExpiresAt !== undefined && {
+          passwordResetExpiresAt: patch.passwordResetExpiresAt,
+        }),
       },
     });
     return this.toRecord(user);
@@ -87,6 +102,8 @@ export class PrismaUserRepository implements UserRepository {
       emailVerifiedAt: user.emailVerifiedAt,
       emailConfirmationToken: user.emailConfirmationToken,
       emailConfirmationExpiresAt: user.emailConfirmationExpiresAt,
+      passwordResetToken: user.passwordResetToken,
+      passwordResetExpiresAt: user.passwordResetExpiresAt,
     };
   }
 }

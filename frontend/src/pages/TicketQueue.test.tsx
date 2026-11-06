@@ -11,6 +11,7 @@ const ticketBase = {
   userId: "u-1",
   userEmail: "cliente@example.com",
   customerPhone: "47999990000",
+  vehicle: { make: "VOLKSWAGEN", model: "GOL", year: 2018 },
   status: "PENDENTE" as const,
   createdAt: "2026-10-13T12:00:00.000Z",
   updatedAt: "2026-10-13T12:00:00.000Z",
@@ -100,17 +101,60 @@ describe("paraCsv", () => {
   });
 });
 describe("TicketQueue", () => {
+  // A coluna existia com um traço fixo: o ticket não guardava o veículo, então
+  // o representante não sabia de que carro era o pedido.
+  it("mostra o veículo do pedido, e o traço só quando não há", async () => {
+    mockFetch({
+      tickets: [
+        ticketBase,
+        { ...ticketBase, id: "t-2", vehicle: null },
+      ],
+    });
+    render(<TicketQueue />);
+
+    expect(await screen.findByText("VOLKSWAGEN GOL 2018")).toBeInTheDocument();
+    const semVeiculo = document.querySelectorAll(".aviso-dado-ausente");
+    expect(semVeiculo).toHaveLength(1);
+  });
+
   it("lista os pedidos devolvidos pela API com o status traduzido", async () => {
     mockFetch({ tickets: [ticketBase] });
     render(<TicketQueue />);
 
     expect(await screen.findByText("cliente@example.com")).toBeInTheDocument();
     expect(screen.getByText("Novo")).toBeInTheDocument();
-    expect(screen.getByText(/Ultraled S14 H4/)).toBeInTheDocument();
+    // O nome tambem aparece como <option> do filtro de produto.
+    expect(screen.getByRole("cell", { name: /Ultraled S14 H4/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirmar" })).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /WhatsApp de cliente@example.com/ })
     ).toHaveAttribute("href", expect.stringContaining("https://wa.me/5547999990000?text="));
+  });
+
+  // As opções saem do que está na fila, não do catálogo inteiro.
+  it("filtra por produto usando só o que existe na fila", async () => {
+    const outro = {
+      ...ticketBase,
+      id: "t-2",
+      items: [{ ...ticketBase.items[0], id: "i-2", ledModelName: "Fog H11" }],
+    };
+    mockFetch({ tickets: [ticketBase, outro] });
+    render(<TicketQueue />);
+
+    // O select existe desde o primeiro render; as opções só depois que os
+    // pedidos chegam — esperar o conteúdo evita asserção numa lista vazia.
+    await screen.findByRole("cell", { name: /Fog H11/ });
+    const filtro = screen.getByLabelText("Filtrar por produto") as HTMLSelectElement;
+    expect(Array.from(filtro.options).map((o) => o.text)).toEqual([
+      "Todos produtos",
+      "Fog H11",
+      "Ultraled S14 H4",
+    ]);
+
+    fireEvent.change(filtro, { target: { value: "Fog H11" } });
+
+    expect(screen.getByRole("cell", { name: /Fog H11/ })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: /Ultraled S14 H4/ })).not.toBeInTheDocument();
   });
 
   it("avisa quando não há pedido no filtro", async () => {

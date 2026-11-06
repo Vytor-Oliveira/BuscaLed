@@ -9,6 +9,7 @@ import {
 
 export type NotificationJob =
   | { type: "confirmationEmail"; email: string; token: string }
+  | { type: "passwordResetEmail"; email: string; token: string }
   | { type: "lowStockAlert"; to: string; info: StockAlertInfo }
   | { type: "newTicket"; to: string; info: NewTicketInfo }
   | { type: "ticketEdited"; to: string; info: TicketEditedInfo }
@@ -59,6 +60,8 @@ export function registerNotificationProcessor(
     switch (data.type) {
       case "confirmationEmail":
         return realSender.sendConfirmationEmail(data.email, data.token);
+      case "passwordResetEmail":
+        return realSender.sendPasswordResetEmail(data.email, data.token);
       case "lowStockAlert":
         return realSender.sendLowStockAlert(data.to, data.info);
       case "newTicket":

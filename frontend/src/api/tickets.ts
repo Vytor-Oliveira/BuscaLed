@@ -12,11 +12,19 @@ export interface TicketItem {
   quantity: number;
 }
 
+// Marca/modelo/ano da busca que originou o pedido. Nunca a placa (RN02).
+export interface TicketVehicle {
+  make: string;
+  model: string;
+  year: number;
+}
+
 export interface Ticket {
   id: string;
   userId: string;
   userEmail: string;
   customerPhone: string | null;
+  vehicle: TicketVehicle | null;
   status: TicketStatus;
   createdAt: string;
   updatedAt: string;
@@ -48,6 +56,35 @@ export function updateTicketItem(
   return api<{ ticket: Ticket }>(`/tickets/${ticketId}/items/${itemId}`, {
     method: "PATCH",
     body: { ledModelId },
+  });
+}
+
+// O backend identifica o pedido por UUID; o RFC mostra um número curto. Até
+// existir sequencial no banco, o sufixo do próprio id serve de rótulo estável.
+export function numeroTicket(id: string): string {
+  return `TKT-${id.replace(/-/g, "").slice(-4).toUpperCase()}`;
+}
+
+export interface NovoItem {
+  ledModelId: string;
+  position: string;
+  quantity: number;
+}
+
+export function createTicket(
+  items: NovoItem[],
+  customerPhone?: string,
+  vehicle?: TicketVehicle
+): Promise<{ ticket: Ticket }> {
+  return api<{ ticket: Ticket }>("/tickets", {
+    method: "POST",
+    // Campos ausentes ficam fora do corpo: o schema da rota os trata como
+    // opcionais, e mandar undefined explicito quebraria a validacao.
+    body: {
+      items,
+      ...(customerPhone ? { customerPhone } : {}),
+      ...(vehicle ? { vehicle } : {}),
+    },
   });
 }
 

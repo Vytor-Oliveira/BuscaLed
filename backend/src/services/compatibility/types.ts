@@ -29,6 +29,8 @@ export interface CompatibleLed {
   sku: string;
   name: string;
   socketCode: string;
+  // Nulo enquanto o produto não tem foto — a vitrine mostra o ícone.
+  imageUrl: string | null;
   inStock: boolean;
 }
 
@@ -44,10 +46,28 @@ export interface PositionCompatibility {
   models: CompatibleLed[];
 }
 
+// Alimenta os seletores da busca por Marca/Modelo/Ano: sem isso a pessoa
+// precisa acertar a grafia exata de um catálogo de ~1900 modelos.
+export interface VehicleModelOption {
+  model: string;
+  yearStart: number;
+  yearEnd: number;
+}
+
+// A placa devolve o nome cru da API ("NOVA SAVEIRO RB MBVS"), que raramente
+// bate letra a letra com a matriz. A busca volta todos os acabamentos que
+// casam pelo nome base, e o service decide o que fazer com eles.
+export interface VehicleModelCandidate {
+  id: string;
+  model: string;
+}
+
 export interface CompatibilityRepository {
-  findVehicleModel(vehicle: VehicleInfo): Promise<{ id: string } | null>;
+  findVehicleModelCandidates(vehicle: VehicleInfo): Promise<VehicleModelCandidate[]>;
   findFittings(vehicleModelId: string): Promise<VehicleFittingRecord[]>;
   findLedModelsBySocketCodes(socketCodes: string[]): Promise<CompatibleLed[]>;
+  listMakes(): Promise<string[]>;
+  listModelsByMake(make: string): Promise<VehicleModelOption[]>;
 }
 
 /**
@@ -65,5 +85,21 @@ export class VehicleNotFoundError extends Error {
       `Nenhum modelo de veículo compatível cadastrado para ${vehicle.make} ${vehicle.model} ${vehicle.year}`
     );
     this.name = "VehicleNotFoundError";
+  }
+}
+
+/**
+ * Mais de uma versão do mesmo carro casou e a iluminação delas difere. Mostrar
+ * qualquer uma arriscaria indicar o LED errado, então o usuário escolhe.
+ */
+export class AmbiguousVehicleModelError extends Error {
+  readonly candidates: string[];
+
+  constructor(vehicle: VehicleInfo, candidates: string[]) {
+    super(
+      `Mais de uma versão de ${vehicle.make} ${vehicle.model} ${vehicle.year} tem iluminação diferente. Selecione a versão exata.`
+    );
+    this.name = "AmbiguousVehicleModelError";
+    this.candidates = candidates;
   }
 }

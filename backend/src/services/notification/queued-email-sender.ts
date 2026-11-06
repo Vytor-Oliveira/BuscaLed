@@ -17,6 +17,10 @@ export class QueuedEmailSender implements EmailSender {
     await this.queue.add({ type: "confirmationEmail", email, token });
   }
 
+  async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+    await this.queue.add({ type: "passwordResetEmail", email, token });
+  }
+
   async sendLowStockAlert(to: string, info: StockAlertInfo): Promise<void> {
     await this.queue.add({ type: "lowStockAlert", to, info });
   }

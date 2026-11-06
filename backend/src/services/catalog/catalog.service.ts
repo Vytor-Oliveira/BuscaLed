@@ -3,6 +3,7 @@ import {
   CreateFittingInput,
   CreateLedModelInput,
   LedModelRecord,
+  UpdateLedModelInput,
   VehicleModelNotFoundForFittingError,
 } from "./types";
 
@@ -11,6 +12,10 @@ export class CatalogService {
 
   createLedModel(input: CreateLedModelInput): Promise<LedModelRecord> {
     return this.repository.createLedModel(input);
+  }
+
+  updateLedModel(id: string, input: UpdateLedModelInput): Promise<LedModelRecord> {
+    return this.repository.updateLedModel(id, input);
   }
 
   listLedModels(): Promise<LedModelRecord[]> {

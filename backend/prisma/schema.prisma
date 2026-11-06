@@ -122,6 +122,17 @@ model LedModel {
   // Foto do produto servida pelo proprio site (frontend/public/leds).
   // Nula enquanto nao houver imagem: o cartao cai no icone generico.
   imageUrl    String?
+  // Dinheiro em centavos inteiros: ponto flutuante em preco e a origem
+  // classica do erro de um centavo, e Decimal do Prisma nao serializa
+  // limpo em JSON. A UI divide por 100 na hora de exibir.
+  // priceCents e publico (cliente ve); costCents e interno (so admin).
+  priceCents  Int?
+  costCents   Int?
+  // Quantas lampadas vem dentro de um kit. O padrao da linha e 2 (o par, uma
+  // para cada lado do carro); torpedo e vendido avulso, entao vale 1. Fica no
+  // produto em vez de ser deduzido do encaixe: a loja pode vender outras
+  // marcas, e a deducao quebraria.
+  unitsPerKit Int     @default(2)
   stockQty    Int     @default(0)
   stockMin    Int     @default(5)
 

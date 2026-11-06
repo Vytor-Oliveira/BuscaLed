@@ -31,6 +31,11 @@ export interface CompatibleLed {
   socketCode: string;
   // Nulo enquanto o produto não tem foto — a vitrine mostra o ícone.
   imageUrl: string | null;
+  // Preço de venda sugerido, em centavos. Esta rota é pública, então o custo
+  // interno (costCents) nunca aparece aqui — só o que o cliente pode ver.
+  priceCents: number | null;
+  // 2 = o kit já traz o par; 1 = unidade avulsa (torpedo).
+  unitsPerKit: number;
   inStock: boolean;
 }
 

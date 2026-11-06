@@ -127,8 +127,11 @@ export function matchModelCandidates<T extends ModelCandidate>(
     return [];
   }
 
-  const best = scored.reduce((winner, entry) =>
-    isBetter(entry.score, winner.score) ? entry : winner
+  // Semente explicita: reduce sem valor inicial estoura em lista vazia, e a
+  // guarda acima e a unica coisa que impedia isso hoje.
+  const best = scored.reduce(
+    (winner, entry) => (isBetter(entry.score, winner.score) ? entry : winner),
+    scored[0]
   );
 
   return scored

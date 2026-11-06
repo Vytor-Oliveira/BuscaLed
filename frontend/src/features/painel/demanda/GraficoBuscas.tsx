@@ -12,39 +12,6 @@ import { formatarInteiro } from "../../../lib/formato";
 
 interface Props {
   dados: SearchesPerDay[];
-  /** Tamanho da janela em dias, para completar o eixo. */
-  dias: number;
-}
-
-/**
- * O backend desta versao devolve apenas os dias que tiveram busca, entao um
- * eixo categorico colapsaria 14/10 a 25/10 num unico passo e desenharia a
- * curva errada — contradizendo a propria legenda do card. O preenchimento
- * acontece aqui porque o backend nao pode ser alterado.
- */
-function completarDias(dados: SearchesPerDay[], dias: number): SearchesPerDay[] {
-  const porDia = new Map(dados.map((d) => [d.day, d.count]));
-  const hoje = new Date();
-  const serie: SearchesPerDay[] = [];
-
-  for (let i = dias - 1; i >= 0; i -= 1) {
-    const data = new Date(hoje);
-    data.setDate(hoje.getDate() - i);
-    const chave = [
-      data.getFullYear(),
-      String(data.getMonth() + 1).padStart(2, "0"),
-      String(data.getDate()).padStart(2, "0"),
-    ].join("-");
-    serie.push({ day: chave, count: porDia.get(chave) ?? 0 });
-  }
-
-  // Dia fora da janela (relogio do servidor adiantado, por exemplo) nao some.
-  for (const ponto of dados) {
-    if (!serie.some((s) => s.day === ponto.day)) {
-      serie.push(ponto);
-    }
-  }
-  return serie.sort((a, b) => a.day.localeCompare(b.day));
 }
 
 function rotuloDoDia(dia: string): string {
@@ -84,8 +51,10 @@ function CaixaDeDica({
  * malha recessiva e marca fina — a leitura é a tendência, não o valor exato de
  * cada ponto (esse vem no hover).
  */
-export function GraficoBuscas({ dados, dias }: Props) {
-  const serie = completarDias(dados, dias);
+export function GraficoBuscas({ dados }: Props) {
+  // O backend devolve a serie inteira, com os dias vazios em zero e agrupada
+  // no fuso de Brasilia: preencher de novo aqui usaria o dia do navegador.
+  const serie = dados;
   const vazio = serie.every((d) => d.count === 0);
 
   if (vazio) {

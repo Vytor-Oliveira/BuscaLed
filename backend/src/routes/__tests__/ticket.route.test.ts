@@ -386,6 +386,33 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     expect(ids).not.toContain(outroEncaixe.id);
   });
 
+  // Antes, o filtro era só stockQty > 0: um item de 4 unidades recebia opção
+  // com 1 em estoque e a falha só aparecia no Concluir, depois da troca feita.
+  it("não oferece alternativa com estoque menor que a quantidade do item", async () => {
+    const atual = await createLedModel("TESTE-QTD", 9);
+    const insuficiente = await createLedModel("TESTE-QTD", 1);
+    const naMedida = await createLedModel("TESTE-QTD", 4);
+    const folgado = await createLedModel("TESTE-QTD", 9);
+    createdLedModelIds.push(atual.id, insuficiente.id, naMedida.id, folgado.id);
+
+    const criado = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: atual.id, position: "FAROL_BAIXO", quantity: 4 }] });
+    const ticketId = criado.body.ticket.id;
+    const itemId = criado.body.ticket.items[0].id;
+    createdTicketIds.push(ticketId);
+
+    const res = await request(app)
+      .get(`/tickets/${ticketId}/items/${itemId}/alternatives`)
+      .set("Cookie", rep.cookies);
+
+    expect(res.status).toBe(200);
+    const ids = res.body.alternatives.map((a: { id: string }) => a.id);
+    expect(ids).not.toContain(insuficiente.id);
+    expect(ids).toContain(naMedida.id);
+    expect(ids).toContain(folgado.id);
+  });
   it("não deixa o cliente final listar alternativas de troca", async () => {
     const led = await createLedModel("TESTE-ALT-403");
     createdLedModelIds.push(led.id);

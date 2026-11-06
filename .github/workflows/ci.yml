@@ -131,6 +131,12 @@ jobs:
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
+        # Sem qualitygate.wait o passo so envia a analise e termina verde,
+        # mesmo com o gate reprovado - o job dizia 'Quality Gate: success'
+        # enquanto o gate estava em C de confiabilidade.
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

@@ -59,9 +59,11 @@ export interface TicketItemDetail {
   ledModelId: string;
   originalLedModelId: string | null;
   socketCode: string;
+  quantity: number;
 }
 
-// Candidatos à troca de um item: mesmo encaixe (RN11) e com estoque.
+// Candidatos à troca de um item: mesmo encaixe (RN11) e com estoque bastante
+// para a quantidade pedida — oferecer menos adia a falha pro Concluir.
 export interface TicketItemAlternative {
   id: string;
   sku: string;
@@ -94,7 +96,7 @@ export interface TicketRepository {
     originalLedModelId: string | null
   ): Promise<TicketRecord>;
   findLedModel(ledModelId: string): Promise<LedModelSummary | null>;
-  findInStockBySocket(socketCode: string): Promise<TicketItemAlternative[]>;
+  findInStockBySocket(socketCode: string, minQty: number): Promise<TicketItemAlternative[]>;
 }
 
 export class TicketNotFoundError extends Error {

@@ -179,10 +179,49 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
     // A taxa é tickets/buscas do período, então fica sempre entre 0 e 1.
     expect(totals.conversionRate).toBeGreaterThanOrEqual(0);
 
-    const hoje = new Date().toISOString().slice(0, 10);
+    // Em UTC isto quebraria entre 21h e meia-noite, quando o dia UTC ja virou.
+    const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
     expect(searchesPerDay.find((p: { day: string }) => p.day === hoje)).toBeDefined();
+
+    // Dia sem busca precisa vir com 0: sem isso o grafico encosta os dias e
+    // esconde justamente a queda de demanda.
+    const dias = searchesPerDay.map((p: { day: string }) => p.day);
+    expect(dias).toEqual([...dias].sort());
+    const emDias = (d: string) => new Date(`${d}T12:00:00Z`).getTime() / 86400000;
+    expect(dias.length).toBe(Math.round(emDias(dias[dias.length - 1]) - emDias(dias[0])) + 1);
   });
 
+  // 02:30Z e 23:30 do dia anterior em Brasilia: a busca tem que ser contada
+  // no dia em que a pessoa buscou, nao no dia seguinte do grafico.
+  it("agrupa a busca no dia de Brasília, não no dia UTC", async () => {
+    const marcaFuso = `TESTEFUSO-${Date.now()}`;
+    marcasDeTeste.push(marcaFuso);
+
+    const instante = new Date();
+    instante.setUTCDate(instante.getUTCDate() - 1);
+    instante.setUTCHours(2, 30, 0, 0);
+    await prisma.searchHistory.create({
+      data: {
+        make: marcaFuso,
+        model: "MODELO-FUSO",
+        year: 2020,
+        resultCount: 0,
+        createdAt: instante,
+      },
+    });
+
+    const diaEmBrasilia = instante.toLocaleDateString("en-CA", {
+      timeZone: "America/Sao_Paulo",
+    });
+    expect(diaEmBrasilia).not.toBe(instante.toISOString().slice(0, 10));
+
+    const res = await request(app).get("/analytics/summary?days=30").set("Cookie", rep);
+    expect(res.status).toBe(200);
+    const serie = res.body.summary.searchesPerDay as { day: string; count: number }[];
+    const noDiaCerto = serie.find((p) => p.day === diaEmBrasilia);
+    expect(noDiaCerto).toBeDefined();
+    expect(noDiaCerto?.count).toBeGreaterThan(0);
+  });
   it("não conta ticket cancelado como demanda", async () => {
     const runId = Date.now();
     const led = await prisma.ledModel.create({

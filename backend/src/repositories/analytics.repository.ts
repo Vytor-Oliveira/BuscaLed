@@ -131,12 +131,26 @@ export class PrismaAnalyticsRepository implements AnalyticsRepository {
 
   async findSearchesPerDay(since: Date): Promise<SearchesPerDay[]> {
     // Agrupa no banco porque a série pode cobrir 90 dias de histórico.
+    //
+    // O createdAt é gravado em UTC, e truncar o dia direto nele jogava toda
+    // busca feita depois das 21h no dia seguinte do gráfico. A série de dias
+    // vem de generate_series porque dia sem busca não aparece num GROUP BY —
+    // e queda de demanda é exatamente o que o parceiro precisa ver.
     const rows = await this.prisma.$queryRaw<PerDayRow[]>`
+      WITH dias AS (
+        SELECT generate_series(
+          date_trunc('day', (${since}::timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo'),
+          date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo'),
+          interval '1 day'
+        ) AS dia
+      )
       SELECT
-        to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') AS "day",
-        COUNT(*) AS "count"
-      FROM "SearchHistory"
-      WHERE "createdAt" >= ${since}
+        to_char(dias.dia, 'YYYY-MM-DD') AS "day",
+        COUNT(busca.id) AS "count"
+      FROM dias
+      LEFT JOIN "SearchHistory" busca
+        ON busca."createdAt" >= ${since}
+       AND date_trunc('day', (busca."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo') = dias.dia
       GROUP BY 1
       ORDER BY 1
     `;

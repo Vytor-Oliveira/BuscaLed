@@ -147,7 +147,7 @@ export default function Dashboard() {
           {carregando ? (
             <Skeleton className="h-56" />
           ) : (
-            <GraficoBuscas dados={resumo?.searchesPerDay ?? []} dias={dias} />
+            <GraficoBuscas dados={resumo?.searchesPerDay ?? []} />
           )}
         </div>
       </section>

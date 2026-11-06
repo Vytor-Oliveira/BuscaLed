@@ -13,7 +13,8 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Devolve o perfil recém-carregado: quem chama precisa do papel pra decidir o destino. */
+  login: (email: string, password: string) => Promise<AuthUser | null>;
   logout: () => Promise<void>;
 }
 
@@ -25,16 +26,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // O cookie é httpOnly, então a única forma de saber se há sessão é perguntar
   // ao backend. 401 aqui é resposta esperada (visitante), não erro.
-  const carregarSessao = useCallback(async () => {
+  const carregarSessao = useCallback(async (): Promise<AuthUser | null> => {
     try {
       const { user: perfil } = await api<{ user: AuthUser }>("/auth/me");
       setUser(perfil);
+      return perfil;
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 401) {
         // eslint-disable-next-line no-console
         console.error("Falha ao carregar a sessão:", error);
       }
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -47,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       await api("/auth/login", { method: "POST", body: { email, password } });
-      await carregarSessao();
+      return carregarSessao();
     },
     [carregarSessao]
   );

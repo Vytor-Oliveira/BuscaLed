@@ -1,5 +1,9 @@
 import { HttpPlateService } from "../plate.service.http";
-import { PlateNotFoundError, PlateServiceTimeoutError } from "../types";
+import {
+  PlateNotFoundError,
+  PlateProviderUnavailableError,
+  PlateServiceTimeoutError,
+} from "../types";
 
 function mockFetchOnce(response: Partial<Response> & { json?: () => Promise<unknown> }) {
   global.fetch = jest.fn().mockResolvedValue(response) as unknown as typeof fetch;
@@ -98,12 +102,33 @@ describe("HttpPlateService", () => {
     await expect(service.resolvePlate("ABC1D23")).rejects.toBeInstanceOf(PlateNotFoundError);
   });
 
-  it("lança erro genérico quando a API responde com status inesperado (ex: 401)", async () => {
-    mockFetchOnce({ ok: false, status: 401 });
+  // Status inesperado é problema do fornecedor, não nosso: tem que virar 503
+  // na rota, e não o 500 genérico que o erro cru produzia.
+  it.each([
+    [401, "token revogado"],
+    [402, "sem saldo"],
+    [429, "throttle"],
+    [503, "fora do ar"],
+  ])("lança PlateProviderUnavailableError no status %i (%s)", async (status) => {
+    mockFetchOnce({ ok: false, status });
 
     const service = new HttpPlateService("token-de-teste");
 
-    await expect(service.resolvePlate("ABC1D23")).rejects.toThrow("PuxaPlaca respondeu com status 401");
+    const erro = await service.resolvePlate("ABC1D23").catch((e: unknown) => e);
+    expect(erro).toBeInstanceOf(PlateProviderUnavailableError);
+    expect((erro as PlateProviderUnavailableError).motivo).toBe(`status ${status}`);
+  });
+
+  it("lança PlateProviderUnavailableError quando a rede falha", async () => {
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(new TypeError("fetch failed")) as unknown as typeof fetch;
+
+    const service = new HttpPlateService("token-de-teste");
+
+    await expect(service.resolvePlate("ABC1D23")).rejects.toBeInstanceOf(
+      PlateProviderUnavailableError
+    );
   });
 
   it("lança PlateServiceTimeoutError quando o fetch é abortado por timeout", async () => {

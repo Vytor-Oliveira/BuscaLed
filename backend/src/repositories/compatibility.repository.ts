@@ -73,6 +73,7 @@ export class PrismaCompatibilityRepository implements CompatibilityRepository {
       sku: model.sku,
       name: model.name,
       socketCode: model.socketCode,
+      imageUrl: model.imageUrl,
       inStock: model.stockQty > 0,
     }));
   }

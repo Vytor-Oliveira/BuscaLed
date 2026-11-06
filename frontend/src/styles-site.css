@@ -534,13 +534,27 @@
 }
 
 .cartao-led-imagem {
-  height: 86px;
+  --altura-foto: 110px;
+  height: var(--altura-foto);
   border-radius: var(--raio-pequeno);
   background: var(--fundo);
   color: var(--texto-tenue);
   display: grid;
   place-items: center;
   margin-bottom: 4px;
+}
+
+/* As fotos da Shocklight ja vem em fundo branco: a caixa acompanha, senao
+   sobra uma moldura cinza em volta do recorte do produto. */
+.cartao-led-imagem-foto {
+  background: #ffffff;
+}
+
+.cartao-led-imagem img {
+  display: block;
+  max-width: 100%;
+  max-height: var(--altura-foto);
+  object-fit: contain;
 }
 
 .cartao-led-ativo .cartao-led-imagem {
@@ -557,8 +571,11 @@
   font-size: 12px;
 }
 
+/* auto, não 6px: a grade iguala a altura dos cartões, e o cartão esgotado tem
+   um selo a mais. Sem isso a sobra cai embaixo do botão do cartão vizinho e os
+   dois botões ficam em alturas diferentes na mesma linha. */
 .cartao-led button {
-  margin-top: 6px;
+  margin-top: auto;
   width: 100%;
   justify-content: center;
 }
@@ -596,6 +613,52 @@
 
 .barra-reserva strong {
   font-size: 14px;
+}
+
+.vitrine-sem-produto {
+  margin: 8px 0 26px;
+  padding: 18px 20px;
+  background: var(--fundo);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio);
+}
+
+.vitrine-sem-produto h3 {
+  font-family: var(--sans);
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+
+.vitrine-sem-produto > p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--texto-fraco);
+}
+
+.vitrine-sem-produto ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.vitrine-sem-produto li {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-pequeno);
+  padding: 10px 12px;
+}
+
+.vitrine-sem-produto li strong {
+  display: block;
+  font-size: 13px;
+}
+
+.vitrine-sem-produto li small {
+  color: var(--texto-tenue);
+  font-size: 12px;
 }
 
 /* ============ Confirmacao (Tela 5) ============ */

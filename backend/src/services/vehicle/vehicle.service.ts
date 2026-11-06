@@ -1,4 +1,4 @@
-import { PlateService } from "../plate/types";
+import { PlateLookupService } from "../plate/plate-lookup.service";
 import {
   AddVehicleInput,
   GarageVehicleNotFoundError,
@@ -12,7 +12,7 @@ import {
 export class VehicleService {
   constructor(
     private readonly vehicleRepository: VehicleRepository,
-    private readonly plateService: PlateService | null
+    private readonly plateLookupService: PlateLookupService | null
   ) {}
 
   listVehicles(userId: string): Promise<GarageVehicleRecord[]> {
@@ -20,7 +20,7 @@ export class VehicleService {
   }
 
   async addVehicle(userId: string, input: AddVehicleInput): Promise<GarageVehicleRecord> {
-    const details = await this.resolveDetails(input);
+    const details = await this.resolveDetails(userId, input);
     return this.vehicleRepository.create(userId, details);
   }
 
@@ -47,13 +47,16 @@ export class VehicleService {
 
   // RF05/RN02 — a placa (input.plate) é usada só dentro deste método e nunca
   // sai daqui: o repositório só recebe make/model/year, nunca a placa.
-  private async resolveDetails(input: AddVehicleInput): Promise<VehicleDetails> {
+  private async resolveDetails(
+    userId: string,
+    input: AddVehicleInput
+  ): Promise<VehicleDetails> {
     if ("plate" in input) {
-      if (!this.plateService) {
+      if (!this.plateLookupService) {
         throw new PlateServiceUnavailableError();
       }
 
-      const resolved = await this.plateService.resolvePlate(input.plate);
+      const resolved = await this.plateLookupService.resolveForUser(userId, input.plate);
       return { make: resolved.make, model: resolved.model, year: resolved.year };
     }
 

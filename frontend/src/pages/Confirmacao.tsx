@@ -39,7 +39,10 @@ export default function Confirmacao() {
           position: item.position,
           quantity: 1,
         })),
-        telefone.trim() || undefined
+        telefone.trim() || undefined,
+        // O veiculo da busca segue junto pro representante saber de que carro
+        // e o pedido — a fila mostrava um traco fixo nessa coluna.
+        dados!.veiculo
       );
       setCriado(ticket.id);
     } catch (error) {

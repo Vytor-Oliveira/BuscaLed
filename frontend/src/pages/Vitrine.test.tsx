@@ -8,15 +8,15 @@ const posicoes = [
     position: "FAROL_BAIXO",
     socketCodes: ["H4"],
     models: [
-      { ledModelId: "led-1", sku: "SHK-S14-H4", name: "Headlight S14", socketCode: "H4", inStock: true },
-      { ledModelId: "led-2", sku: "SHK-S16-H4", name: "Ultraled S16", socketCode: "H4", inStock: false },
+      { ledModelId: "led-1", sku: "SHK-S14-H4", name: "Headlight S14", socketCode: "H4", imageUrl: "/leds/SLL-140004.jpg", inStock: true },
+      { ledModelId: "led-2", sku: "SHK-S16-H4", name: "Ultraled S16", socketCode: "H4", imageUrl: "/leds/SLL-160004.jpg", inStock: false },
     ],
   },
   {
     position: "NEBLINA",
     socketCodes: ["H11"],
     models: [
-      { ledModelId: "led-3", sku: "SHK-H11", name: "Fog H11", socketCode: "H11", inStock: true },
+      { ledModelId: "led-3", sku: "SHK-H11", name: "Fog H11", socketCode: "H11", imageUrl: null, inStock: true },
     ],
   },
   // Posição sem produto no catálogo: não deve virar cartão.
@@ -58,15 +58,67 @@ describe("Vitrine", () => {
     expect(screen.getByText("Fog H11")).toBeInTheDocument();
   });
 
-  // RF06 — posição sem produto cadastrado não tem o que escolher.
-  it("omite posição que não tem nenhum produto no catálogo", async () => {
+  // RF06 — posição sem produto cadastrado não tem o que escolher. Mas antes ela
+  // desaparecia inteira, e o cliente nem ficava sabendo que o carro tem W5W na placa.
+  it("lista a posição sem produto como encaixe, sem virar cartão de compra", async () => {
     mockApi((url) =>
       url.includes("/compatibility") ? { ok: true, status: 200, corpo: { positions: posicoes } } : semSessao
     );
     montar();
 
     await screen.findByText("Farol baixo");
-    expect(screen.queryByText("Placa")).not.toBeInTheDocument();
+    const encaixes = screen.getByRole("heading", { name: /Outros encaixes/ }).closest("section");
+    expect(encaixes).toHaveTextContent("Placa");
+    expect(encaixes).toHaveTextContent("W5W");
+    expect(encaixes?.querySelectorAll("button")).toHaveLength(0);
+  });
+
+  // O caso do BMW Z4 Roadster 2004: veículo na matriz, encaixes conhecidos,
+  // catálogo sem nenhum produto. Antes dizia "0 LEDs compatíveis" e mais nada,
+  // que soa como "este carro não aceita LED" — e os soquetes eram descartados.
+  it("mostra os encaixes quando nenhuma posição tem produto", async () => {
+    const soEncaixes = [
+      { position: "FAROL_BAIXO", socketCodes: ["D1S"], models: [] },
+      { position: "NEBLINA", socketCodes: ["H8"], models: [] },
+    ];
+    mockApi((url) =>
+      url.includes("/compatibility")
+        ? { ok: true, status: 200, corpo: { positions: soEncaixes } }
+        : semSessao
+    );
+    montar();
+
+    expect(await screen.findByText("D1S")).toBeInTheDocument();
+    expect(screen.getByText("H8")).toBeInTheDocument();
+    expect(screen.getByText(/2 encaixes · 0 LEDs disponíveis/)).toBeInTheDocument();
+    expect(screen.queryByText(/Ainda não temos a ficha/)).not.toBeInTheDocument();
+  });
+
+  // Só este caso é "não sei nada deste veículo" — e ele não pode usar a mesma
+  // frase do caso acima, onde o sistema conhece o carro e falta produto.
+  it("diz que não tem a ficha quando a matriz não devolve nenhuma posição", async () => {
+    mockApi((url) =>
+      url.includes("/compatibility") ? { ok: true, status: 200, corpo: { positions: [] } } : semSessao
+    );
+    montar();
+
+    expect(await screen.findByText(/Ainda não temos a ficha/)).toBeInTheDocument();
+  });
+
+  // A foto é decorativa (o nome está no cartão), por isso alt="" e a busca
+  // pelo src: produto sem imagem não pode ficar com a caixa vazia.
+  it("mostra a foto do produto quando existe e o ícone quando não", async () => {
+    mockApi((url) =>
+      url.includes("/compatibility") ? { ok: true, status: 200, corpo: { positions: posicoes } } : semSessao
+    );
+    const { container } = montar();
+
+    await screen.findByText("Headlight S14");
+    expect(container.querySelector('img[src="/leds/SLL-140004.jpg"]')).toBeInTheDocument();
+
+    const semFoto = screen.getByText("Fog H11").closest("li");
+    expect(semFoto?.querySelector("img")).toBeNull();
+    expect(semFoto?.querySelector("svg")).toBeInTheDocument();
   });
 
   it("não deixa escolher modelo sem estoque", async () => {

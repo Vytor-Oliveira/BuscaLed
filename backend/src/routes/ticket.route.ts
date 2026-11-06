@@ -43,6 +43,23 @@ const createTicketSchema = z.object({
   // Opcional: sem telefone o painel so nao mostra o botao de WhatsApp.
   // Aceita o formato que a pessoa digitar; a normalizacao pro link e do painel.
   customerPhone: z.string().trim().min(10).max(20).optional(),
+  // Veiculo da busca que originou o pedido, pro representante saber de que
+  // carro e. Os tres campos juntos ou nenhum. Placa nao entra aqui (RN02).
+  vehicle: z
+    .object({
+      make: z.string().trim().min(1),
+      model: z.string().trim().min(1),
+      year: z
+        .number()
+        .int()
+        .min(1900)
+        .max(new Date().getFullYear() + 1),
+    })
+    // strict porque o Zod descarta chave extra em silencio: um cliente que
+    // mandasse a placa junto receberia 201 e a gente nunca saberia. RN02 pede
+    // que isso falhe alto.
+    .strict()
+    .optional(),
 });
 
 const editItemSchema = z.object({
@@ -92,11 +109,10 @@ ticketRouter.post("/", async (req, res, next) => {
   }
 
   try {
-    const ticket = await ticketService.createTicket(
-      req.user!.id,
-      parsed.data.items,
-      parsed.data.customerPhone
-    );
+    const ticket = await ticketService.createTicket(req.user!.id, parsed.data.items, {
+      customerPhone: parsed.data.customerPhone,
+      vehicle: parsed.data.vehicle,
+    });
     res.status(201).json({ ticket });
   } catch (error) {
     handleTicketError(error, res, next);

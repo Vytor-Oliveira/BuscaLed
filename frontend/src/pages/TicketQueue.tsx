@@ -263,7 +263,14 @@ export default function TicketQueue() {
                         {ticket.customerPhone && <small>{ticket.customerPhone}</small>}
                       </td>
 
-                      <td className="aviso-dado-ausente" data-rotulo="Veículo">—</td>
+                      <td
+                        className={ticket.vehicle ? undefined : "aviso-dado-ausente"}
+                        data-rotulo="Veículo"
+                      >
+                        {ticket.vehicle
+                          ? `${ticket.vehicle.make} ${ticket.vehicle.model} ${ticket.vehicle.year}`
+                          : "—"}
+                      </td>
 
                       <td data-rotulo="Produto(s)">
                         {ticket.items.map((item) => (

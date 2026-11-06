@@ -7,6 +7,7 @@ const produtos = [
     sku: "SHK-S14-H4",
     name: "Headlight S14 Nano",
     socketCode: "H4",
+    imageUrl: "/leds/SLL-140004.jpg",
     stockQty: 2,
     stockMin: 5,
   },
@@ -15,6 +16,7 @@ const produtos = [
     sku: "SHK-S16-H7",
     name: "Ultraled S16",
     socketCode: "H7",
+    imageUrl: null,
     stockQty: 30,
     stockMin: 5,
   },
@@ -35,6 +37,18 @@ describe("Stock", () => {
     // Só o primeiro está com estoque <= mínimo.
     expect(screen.getAllByText("Estoque baixo")).toHaveLength(1);
     expect(screen.getByText(/1 abaixo do mínimo/)).toBeInTheDocument();
+  });
+
+  it("mostra a foto do produto quando existe e o ícone quando não", async () => {
+    mockFetch({ ledModels: produtos });
+    const { container } = render(<Stock />);
+
+    await screen.findByText("Headlight S14 Nano");
+    expect(container.querySelector('img[src="/leds/SLL-140004.jpg"]')).toBeInTheDocument();
+
+    const semFoto = screen.getByText("Ultraled S16").closest("li");
+    expect(semFoto?.querySelector("img")).toBeNull();
+    expect(semFoto?.querySelector("svg")).toBeInTheDocument();
   });
 
   it("oferece um campo de reposição por produto", async () => {

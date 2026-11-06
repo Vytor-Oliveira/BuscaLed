@@ -6,6 +6,7 @@ const ticketBase = {
   userId: "u-1",
   userEmail: "cliente@example.com",
   customerPhone: "47999990000",
+  vehicle: { make: "VOLKSWAGEN", model: "GOL", year: 2018 },
   status: "PENDENTE" as const,
   createdAt: "2026-10-13T12:00:00.000Z",
   updatedAt: "2026-10-13T12:00:00.000Z",
@@ -69,6 +70,22 @@ describe("montarMensagem", () => {
 });
 
 describe("TicketQueue", () => {
+  // A coluna existia com um traço fixo: o ticket não guardava o veículo, então
+  // o representante não sabia de que carro era o pedido.
+  it("mostra o veículo do pedido, e o traço só quando não há", async () => {
+    mockFetch({
+      tickets: [
+        ticketBase,
+        { ...ticketBase, id: "t-2", vehicle: null },
+      ],
+    });
+    render(<TicketQueue />);
+
+    expect(await screen.findByText("VOLKSWAGEN GOL 2018")).toBeInTheDocument();
+    const semVeiculo = document.querySelectorAll(".aviso-dado-ausente");
+    expect(semVeiculo).toHaveLength(1);
+  });
+
   it("lista os pedidos devolvidos pela API com o status traduzido", async () => {
     mockFetch({ tickets: [ticketBase] });
     render(<TicketQueue />);

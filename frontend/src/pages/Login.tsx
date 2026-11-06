@@ -1,24 +1,39 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, pedirRedefinicao, registrar } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
+import { UserRole, useAuth } from "../auth/AuthContext";
 import { IconeLampada } from "../components/Icones";
 
 type Aba = "entrar" | "criar";
 
+// Cliente não tem o que fazer no painel: mandar todo mundo pra fila de pedidos
+// fazia o RequireRole responder "sem permissão" assim que ele entrava na conta.
+function destinoPorPapel(role: UserRole): string {
+  return role === "user" ? "/garagem" : "/painel/tickets";
+}
+
 export default function Login() {
   const { user, loading, login } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [aba, setAba] = useState<Aba>("entrar");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState("");
-  const [aviso, setAviso] = useState("");
+  // O /auth/confirm redireciona pra cá com o resultado na query.
+  const confirmacao = params.get("confirmacao");
+  const [erro, setErro] = useState(
+    confirmacao === "invalida"
+      ? "Este link de confirmação é inválido ou já expirou. Crie a conta de novo para receber outro."
+      : ""
+  );
+  const [aviso, setAviso] = useState(
+    confirmacao === "ok" ? "E-mail confirmado! Agora você já pode entrar." : ""
+  );
   const [enviando, setEnviando] = useState(false);
 
   if (!loading && user) {
-    return <Navigate to="/painel/tickets" replace />;
+    return <Navigate to={destinoPorPapel(user.role)} replace />;
   }
 
   function trocarAba(nova: Aba) {
@@ -32,8 +47,16 @@ export default function Login() {
     setErro("");
     setEnviando(true);
     try {
-      await login(email.trim(), senha);
-      navigate("/painel/tickets", { replace: true });
+      const perfil = await login(email.trim(), senha);
+      if (perfil) {
+        navigate(destinoPorPapel(perfil.role), { replace: true });
+      } else {
+        // A senha estava certa, mas a sessão não veio — cookie recusado, por
+        // exemplo. Sem esta mensagem a tela só ficava parada.
+        setErro(
+          "Entramos, mas não foi possível carregar seu perfil. Tente de novo em instantes."
+        );
+      }
     } catch (error) {
       setErro(error instanceof ApiError ? error.message : "Não foi possível entrar.");
     } finally {

@@ -68,6 +68,16 @@ describe("RequireRole", () => {
     expect(screen.queryByText("Área restrita")).not.toBeInTheDocument();
   });
 
+  // A mensagem era fixa e dizia que a área era do representante e do admin —
+  // em /painel/estoque, que só aceita admin, ela contradizia o próprio bloqueio.
+  it("diz na mensagem só os papéis que a rota aceita", async () => {
+    mockMe(usuario("rep"));
+    montar(["admin"]);
+
+    expect(await screen.findByText(/restrita ao administrador/)).toBeInTheDocument();
+    expect(screen.queryByText(/ao representante/)).not.toBeInTheDocument();
+  });
+
   // Decidir antes da resposta do /auth/me jogaria quem está logado para o
   // login a cada recarregamento da página.
   it("não decide nada enquanto a sessão carrega", async () => {

@@ -40,7 +40,9 @@ describe("Vehicle routes / Garagem Virtual (integração real — Postgres, sem 
     }
     await prisma.$disconnect();
     await closeNotificationQueue();
-  });
+    // Limpeza em tabelas grandes: 5s (padrao do Jest) estoura com o
+    // container frio e deixa o CI vermelho sem motivo real.
+  }, 30_000);
 
   it("bloqueia acesso sem autenticação", async () => {
     const res = await request(app).get("/garage");

@@ -51,6 +51,28 @@ export function updateTicketItem(
   });
 }
 
+// O backend identifica o pedido por UUID; o RFC mostra um número curto. Até
+// existir sequencial no banco, o sufixo do próprio id serve de rótulo estável.
+export function numeroTicket(id: string): string {
+  return `TKT-${id.replace(/-/g, "").slice(-4).toUpperCase()}`;
+}
+
+export interface NovoItem {
+  ledModelId: string;
+  position: string;
+  quantity: number;
+}
+
+export function createTicket(
+  items: NovoItem[],
+  customerPhone?: string
+): Promise<{ ticket: Ticket }> {
+  return api<{ ticket: Ticket }>("/tickets", {
+    method: "POST",
+    body: customerPhone ? { items, customerPhone } : { items },
+  });
+}
+
 export function listTickets(status?: TicketStatus): Promise<{ tickets: Ticket[] }> {
   return api<{ tickets: Ticket[] }>("/tickets", { query: { status } });
 }

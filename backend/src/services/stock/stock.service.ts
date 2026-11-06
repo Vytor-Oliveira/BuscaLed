@@ -13,6 +13,15 @@ export class StockService {
   }
 
   // RF13 — admin adiciona estoque.
+  // RF13 — o nível mínimo é o que dispara o alerta, então o admin precisa
+  // poder ajustá-lo por produto.
+  async updateMinimum(ledModelId: string, stockMin: number): Promise<StockLevel> {
+    if (!Number.isInteger(stockMin) || stockMin < 0) {
+      throw new InvalidQuantityError();
+    }
+    return this.repository.updateMinimum(ledModelId, stockMin);
+  }
+
   async restock(ledModelId: string, quantity: number): Promise<StockLevel> {
     this.assertValidQuantity(quantity);
     return this.repository.incrementStock(ledModelId, quantity);

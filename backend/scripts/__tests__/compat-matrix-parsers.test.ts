@@ -14,20 +14,60 @@ describe("parseYearRange", () => {
     expect(parseYearRange("2020")).toEqual({ yearStart: 2020, yearEnd: 2020 });
   });
 
-  it("trata '> AAAA' como 'a partir de AAAA' (suposição documentada)", () => {
+  // '>' é 'a partir de' nas duas posições — as duas formas dão a mesma faixa.
+  it("trata '> AAAA' como 'a partir de AAAA', igual a 'AAAA >'", () => {
     expect(parseYearRange("> 2016")).toEqual({ yearStart: 2016, yearEnd: 9999 });
+    expect(parseYearRange("> 2016")).toEqual(parseYearRange("2016 >"));
   });
 
-  it("trata '< AAAA' como 'até AAAA'", () => {
+  it("trata '< AAAA' como 'até AAAA' — o único formato que abre o início", () => {
     expect(parseYearRange("< 1996")).toEqual({ yearStart: 0, yearEnd: 1996 });
+  });
+
+  // Formato que o parser antigo gravava como yearEnd 0, porque fatiava no ">"
+  // e Number("") e 0, nao NaN. Eram 37 modelos invisiveis em qualquer busca.
+  it("trata 'AAAA >' como 'a partir de AAAA'", () => {
+    expect(parseYearRange("2015 >")).toEqual({ yearStart: 2015, yearEnd: 9999 });
   });
 
   it("aceita espaços extras ao redor dos valores", () => {
     expect(parseYearRange("  1991 > 1998  ")).toEqual({ yearStart: 1991, yearEnd: 1998 });
+    expect(parseYearRange("  2015 > ")).toEqual({ yearStart: 2015, yearEnd: 9999 });
+  });
+
+  it("aceita espaço não separável, que a planilha costuma trazer", () => {
+    const nbsp = String.fromCharCode(0x00a0);
+    expect(parseYearRange(`${nbsp}2015${nbsp}>${nbsp}`)).toEqual({
+      yearStart: 2015,
+      yearEnd: 9999,
+    });
   });
 
   it("lança InvalidYearRangeError para um formato não reconhecido", () => {
     expect(() => parseYearRange("depende do motor")).toThrow(InvalidYearRangeError);
+    expect(() => parseYearRange("abc")).toThrow(InvalidYearRangeError);
+  });
+
+  it("recusa valor vazio em vez de virar ano 0", () => {
+    expect(() => parseYearRange("")).toThrow(InvalidYearRangeError);
+    expect(() => parseYearRange("   ")).toThrow(InvalidYearRangeError);
+  });
+
+  // Erro de digitação real da planilha: CHEVROLET CRUZE 1.8 FLEX, "2012 > 215".
+  // Nao e corrigido em silencio — tem que aparecer no relatorio de importacao.
+  it("recusa ano fora da faixa plausível, como o '215' do Cruze", () => {
+    expect(() => parseYearRange("2012 > 215")).toThrow(InvalidYearRangeError);
+    expect(() => parseYearRange("1800")).toThrow(InvalidYearRangeError);
+    expect(() => parseYearRange("> 2200")).toThrow(InvalidYearRangeError);
+  });
+
+  it("recusa intervalo invertido", () => {
+    expect(() => parseYearRange("2015 > 2010")).toThrow(InvalidYearRangeError);
+  });
+
+  it("explica o motivo na mensagem, com o valor bruto", () => {
+    expect(() => parseYearRange("2012 > 215")).toThrow(/"2012 > 215"/);
+    expect(() => parseYearRange("1800")).toThrow(/fora da faixa/);
   });
 });
 

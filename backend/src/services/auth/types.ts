@@ -10,6 +10,8 @@ export interface UserRecord {
   emailVerifiedAt: Date | null;
   emailConfirmationToken: string | null;
   emailConfirmationExpiresAt: Date | null;
+  passwordResetToken: string | null;
+  passwordResetExpiresAt: Date | null;
 }
 
 // O que o frontend pode saber do proprio usuario: nunca hash de senha nem
@@ -30,6 +32,8 @@ export interface CreateUserInput {
   emailVerifiedAt?: Date | null;
   emailConfirmationToken?: string | null;
   emailConfirmationExpiresAt?: Date | null;
+  passwordResetToken?: string | null;
+  passwordResetExpiresAt?: Date | null;
 }
 
 export type UpdateUserInput = Partial<CreateUserInput>;
@@ -39,6 +43,7 @@ export interface UserRepository {
   findById(id: string): Promise<UserRecord | null>;
   findByGoogleId(googleId: string): Promise<UserRecord | null>;
   findByConfirmationToken(token: string): Promise<UserRecord | null>;
+  findByPasswordResetToken(token: string): Promise<UserRecord | null>;
   create(input: CreateUserInput): Promise<UserRecord>;
   update(id: string, patch: UpdateUserInput): Promise<UserRecord>;
 }

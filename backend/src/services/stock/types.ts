@@ -11,6 +11,7 @@ export interface StockRepository {
   findById(ledModelId: string): Promise<StockLevel | null>;
   incrementStock(ledModelId: string, quantity: number): Promise<StockLevel>;
   decrementStock(ledModelId: string, quantity: number): Promise<StockLevel>;
+  updateMinimum(ledModelId: string, stockMin: number): Promise<StockLevel>;
 }
 
 export class LedModelNotFoundError extends Error {

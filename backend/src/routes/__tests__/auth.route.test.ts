@@ -18,6 +18,11 @@ async function getConfirmationToken(email: string): Promise<string> {
   return user.emailConfirmationToken;
 }
 
+async function getResetToken(email: string): Promise<string | null> {
+  const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+  return user.passwordResetToken;
+}
+
 /**
  * Testes de integração reais: HTTP -> rota -> serviço -> repositório ->
  * Postgres de verdade (via Docker). Sem mock em nenhuma camada. Requer
@@ -32,7 +37,9 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
     }
     await prisma.$disconnect();
     await closeNotificationQueue();
-  });
+    // Limpeza em tabelas grandes: 5s (padrao do Jest) estoura com o
+    // container frio e deixa o CI vermelho sem motivo real.
+  }, 30_000);
 
   it("cadastra, bloqueia login antes de confirmar, confirma e loga com sucesso", async () => {
     const email = uniqueEmail();
@@ -161,5 +168,63 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
     // Nunca expor segredo, mesmo pro proprio usuario.
     expect(res.body.user.passwordHash).toBeUndefined();
     expect(res.body.user.emailConfirmationToken).toBeUndefined();
+  });
+
+  describe("recuperação de senha (RF02)", () => {
+    it("gera token e deixa entrar com a senha nova", async () => {
+      const email = uniqueEmail();
+      await request(app).post("/auth/register").send({ name: "Reset", email, password: "senha-antiga-123" });
+      await request(app).get(`/auth/confirm?token=${await getConfirmationToken(email)}`);
+
+      const pedido = await request(app).post("/auth/forgot-password").send({ email });
+      expect(pedido.status).toBe(200);
+
+      const token = await getResetToken(email);
+      expect(token).toBeTruthy();
+
+      const troca = await request(app)
+        .post("/auth/reset-password")
+        .send({ token, password: "senha-nova-456" });
+      expect(troca.status).toBe(200);
+
+      const comNova = await request(app).post("/auth/login").send({ email, password: "senha-nova-456" });
+      expect(comNova.status).toBe(200);
+
+      const comAntiga = await request(app).post("/auth/login").send({ email, password: "senha-antiga-123" });
+      expect(comAntiga.status).toBe(401);
+    });
+
+    it("queima o token depois do uso", async () => {
+      const email = uniqueEmail();
+      await request(app).post("/auth/register").send({ name: "Reset", email, password: "senha-antiga-123" });
+      await request(app).get(`/auth/confirm?token=${await getConfirmationToken(email)}`);
+      await request(app).post("/auth/forgot-password").send({ email });
+
+      const token = await getResetToken(email);
+      await request(app).post("/auth/reset-password").send({ token, password: "senha-nova-456" });
+
+      const repetido = await request(app)
+        .post("/auth/reset-password")
+        .send({ token, password: "outra-senha-789" });
+      expect(repetido.status).toBe(400);
+      expect(await getResetToken(email)).toBeNull();
+    });
+
+    // Responder diferente entregaria quem tem conta no sistema.
+    it("responde igual para e-mail que não existe", async () => {
+      const existente = uniqueEmail();
+      await request(app).post("/auth/register").send({ name: "Reset", email: existente, password: "senha-forte-123" });
+
+      const comConta = await request(app).post("/auth/forgot-password").send({ email: existente });
+      const semConta = await request(app).post("/auth/forgot-password").send({ email: uniqueEmail() });
+
+      expect(semConta.status).toBe(comConta.status);
+      expect(semConta.body).toEqual(comConta.body);
+    });
+
+    it("recusa senha curta demais", async () => {
+      const res = await request(app).post("/auth/reset-password").send({ token: "qualquer", password: "123" });
+      expect(res.status).toBe(400);
+    });
   });
 });

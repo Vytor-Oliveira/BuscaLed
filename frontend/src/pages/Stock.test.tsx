@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Stock from "./Stock";
 
 const produtos = [
@@ -45,6 +45,60 @@ describe("Stock", () => {
       await screen.findByLabelText("Quantidade a repor de SHK-S14-H4")
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Quantidade a repor de SHK-S16-H7")).toBeInTheDocument();
+  });
+
+  it("cadastra um produto novo e põe na lista em ordem de SKU", async () => {
+    const criado = {
+      id: "led-9",
+      sku: "SHK-S11-H11",
+      name: "Fog H11",
+      socketCode: "H11",
+      stockQty: 10,
+      stockMin: 2,
+    };
+    globalThis.fetch = ((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === "POST" ? 201 : 200,
+        json: () =>
+          Promise.resolve(init?.method === "POST" ? { ledModel: criado } : { ledModels: produtos }),
+      })) as unknown as typeof fetch;
+
+    render(<Stock />);
+    await screen.findByText("Headlight S14 Nano");
+
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar produto/ }));
+    fireEvent.change(screen.getByLabelText("SKU"), { target: { value: "SHK-S11-H11" } });
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Fog H11" } });
+    fireEvent.change(screen.getByLabelText("Encaixe"), { target: { value: "h11" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar produto" }));
+
+    expect(await screen.findByText("Fog H11")).toBeInTheDocument();
+  });
+
+  it("mostra o 409 de SKU duplicado", async () => {
+    globalThis.fetch = ((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: init?.method !== "POST",
+        status: init?.method === "POST" ? 409 : 200,
+        json: () =>
+          Promise.resolve(
+            init?.method === "POST" ? { error: "SKU já cadastrado." } : { ledModels: produtos }
+          ),
+      })) as unknown as typeof fetch;
+
+    render(<Stock />);
+    await screen.findByText("Headlight S14 Nano");
+
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar produto/ }));
+    fireEvent.change(screen.getByLabelText("SKU"), { target: { value: "SHK-S14-H4" } });
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Repetido" } });
+    fireEvent.change(screen.getByLabelText("Encaixe"), { target: { value: "H4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar produto" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("SKU já cadastrado.");
+    });
   });
 
   it("mostra o erro que a API devolveu", async () => {

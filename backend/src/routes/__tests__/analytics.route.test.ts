@@ -4,8 +4,23 @@ import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
 import { closeRedis } from "../../db/redis";
 import { closeNotificationQueue } from "../../queue/notification.bootstrap";
+import { PrismaAnalyticsRepository } from "../../repositories/analytics.repository";
 
 const app = createApp();
+
+/**
+ * Os três rankings são globais e sem filtro por item: a posição da massa de
+ * teste depende do tamanho do banco, e um veículo com uma única busca já fica
+ * fora de qualquer limite que a rota aceita (o máximo é 50). A agregação é
+ * conferida no repositório — mesmo SQL, Postgres real — com limite acima do
+ * banco; a rota responde pelo contrato que o dashboard consome.
+ */
+const repositorio = new PrismaAnalyticsRepository(prisma);
+const ACIMA_DO_BANCO = 100_000;
+
+function ordenado(valores: number[], sentido: "desc" | "asc"): boolean {
+  return valores.every((valor, i) => i === 0 || (sentido === "desc" ? valores[i - 1] >= valor : valores[i - 1] <= valor));
+}
 
 function uniqueEmail(prefix: string): string {
   return `teste-analytics-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
@@ -80,7 +95,7 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
     expect(invalido.status).toBe(400);
   });
 
-  it("devolve os três blocos do dashboard com dados reais", async () => {
+  it("agrega os três blocos do dashboard a partir de dados reais", async () => {
     const runId = Date.now();
     const marca = `TESTEANALYTICS-${runId}`;
     marcasDeTeste.push(marca);
@@ -107,25 +122,45 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
     // veículo buscado, sem resultado (lacuna da matriz)
     await request(app).get(`/compatibility?make=${marca}&model=MODELO-ANALYTICS&year=2020`);
 
-    // limit alto de proposito: o catalogo semeado tem 20 produtos zerados, que
-    // ocupariam o topo de criticalStock e esconderiam o deste teste.
-    const res = await request(app).get("/analytics/summary?limit=50").set("Cookie", rep);
-    expect(res.status).toBe(200);
+    const [topProducts, criticalStock, topVehicles] = await Promise.all([
+      repositorio.findTopProducts(ACIMA_DO_BANCO),
+      repositorio.findCriticalStock(ACIMA_DO_BANCO),
+      repositorio.findTopVehicles(ACIMA_DO_BANCO),
+    ]);
 
-    const { topProducts, criticalStock, topVehicles } = res.body.summary;
-
-    expect(topProducts.find((p: { sku: string }) => p.sku === critico.sku)).toMatchObject({
+    expect(topProducts.find((p) => p.sku === critico.sku)).toMatchObject({
       totalReserved: 3,
     });
-    expect(criticalStock.find((p: { sku: string }) => p.sku === critico.sku)).toMatchObject({
+    expect(criticalStock.find((p) => p.sku === critico.sku)).toMatchObject({
       stockQty: 1,
       stockMin: 5,
     });
-    expect(topVehicles.find((v: { make: string }) => v.make === marca)).toMatchObject({
+    expect(topVehicles.find((v) => v.make === marca)).toMatchObject({
       model: "MODELO-ANALYTICS",
       searchCount: 1,
       withoutResultCount: 1,
     });
+  });
+
+  it("devolve os três rankings pela rota, ordenados e dentro do limite", async () => {
+    const limite = 5;
+    const res = await request(app).get(`/analytics/summary?limit=${limite}`).set("Cookie", rep);
+    expect(res.status).toBe(200);
+
+    const { topProducts, criticalStock, topVehicles } = res.body.summary;
+
+    for (const bloco of [topProducts, criticalStock, topVehicles]) {
+      expect(Array.isArray(bloco)).toBe(true);
+      expect(bloco.length).toBeLessThanOrEqual(limite);
+    }
+
+    expect(topProducts.length).toBeGreaterThan(0);
+    expect(topVehicles.length).toBeGreaterThan(0);
+
+    expect(ordenado(topProducts.map((p: { totalReserved: number }) => p.totalReserved), "desc")).toBe(true);
+    expect(ordenado(topVehicles.map((v: { searchCount: number }) => v.searchCount), "desc")).toBe(true);
+    // Estoque crítico sobe do mais urgente: menor quantidade primeiro.
+    expect(ordenado(criticalStock.map((p: { stockQty: number }) => p.stockQty), "asc")).toBe(true);
   });
 
   it("devolve os totais e a série por dia que os cards e o gráfico consomem", async () => {
@@ -170,8 +205,8 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
 
     await request(app).patch(`/tickets/${ticketId}/cancel`).set("Cookie", client);
 
-    const res = await request(app).get("/analytics/summary?limit=50").set("Cookie", rep);
-    expect(res.status).toBe(200);
-    expect(res.body.summary.topProducts.find((p: { sku: string }) => p.sku === led.sku)).toBeUndefined();
+    // Limite acima do banco: senão "ausente" poderia ser só "fora do top".
+    const topProducts = await repositorio.findTopProducts(ACIMA_DO_BANCO);
+    expect(topProducts.find((p) => p.sku === led.sku)).toBeUndefined();
   });
 });

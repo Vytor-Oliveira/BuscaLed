@@ -38,12 +38,19 @@ async function criarSessao(role: "ADMIN" | "REP" | "USER"): Promise<string[]> {
 }
 
 const criados: string[] = [];
+const veiculosCriados: string[] = [];
 
 // Um único encerramento para o arquivo inteiro: dois describe fechando Prisma
 // e Redis cada um pendurava a suíte, porque o segundo ainda precisava deles.
 afterAll(async () => {
   if (criados.length > 0) {
     await prisma.ledModel.deleteMany({ where: { id: { in: criados } } });
+  }
+  if (veiculosCriados.length > 0) {
+    await prisma.vehicleFitting.deleteMany({
+      where: { vehicleModelId: { in: veiculosCriados } },
+    });
+    await prisma.vehicleModel.deleteMany({ where: { id: { in: veiculosCriados } } });
   }
   await prisma.$disconnect();
   await closeNotificationQueue();
@@ -221,31 +228,44 @@ describe("Catálogo — preço, custo e imagem (integração real)", () => {
 });
 
 describe("Compatibilidade — o custo interno nunca vaza (rota pública)", () => {
+  // Massa propria, do produto ao encaixe: procurar um produto do seed e depois
+  // um encaixe que combine com ele deixa o teste refem do que ja esta no
+  // banco, e no CI a matriz nao tem o encaixe do primeiro produto.
   it("expõe priceCents e omite costCents sem sessão nenhuma", async () => {
-    // Um produto qualquer do catálogo, com os dois valores preenchidos.
-    const produto = await prisma.ledModel.findFirst({ orderBy: { sku: "asc" } });
-    if (!produto) {
-      throw new Error("Catálogo vazio: o seed precisa rodar antes deste teste.");
-    }
-    await prisma.ledModel.update({
-      where: { id: produto.id },
-      // Valores sem sobreposicao de digitos: 19900 contem "9900" como
-      // substring, e a assercao abaixo daria falso positivo.
-      data: { priceCents: 19900, costCents: 7350 },
-    });
+    const marcador = `PRECO-${Date.now()}`;
 
-    const fitting = await prisma.vehicleFitting.findFirst({
-      where: { socketCode: produto.socketCode },
-      include: { vehicleModel: true },
+    const produto = await prisma.ledModel.create({
+      data: {
+        sku: `TESTE-${marcador}`,
+        name: "LED de teste de vazamento",
+        socketCode: marcador,
+        stockQty: 10,
+        stockMin: 1,
+        // Valores sem sobreposicao de digitos: 19900 contem "9900" como
+        // substring, e a assercao abaixo daria falso positivo.
+        priceCents: 19900,
+        costCents: 7350,
+      },
     });
-    if (!fitting) {
-      throw new Error(`Nenhum encaixe ${produto.socketCode} na matriz.`);
-    }
+    criados.push(produto.id);
+
+    const veiculo = await prisma.vehicleModel.create({
+      data: {
+        make: marcador,
+        model: "MODELO-PRECO",
+        yearStart: 2020,
+        yearEnd: 2020,
+        fittings: {
+          create: [{ position: "FAROL_BAIXO", socketCode: marcador }],
+        },
+      },
+    });
+    veiculosCriados.push(veiculo.id);
 
     const resposta = await request(app).get("/compatibility").query({
-      make: fitting.vehicleModel.make,
-      model: fitting.vehicleModel.model,
-      year: fitting.vehicleModel.yearStart,
+      make: veiculo.make,
+      model: veiculo.model,
+      year: veiculo.yearStart,
     });
 
     expect(resposta.status).toBe(200);

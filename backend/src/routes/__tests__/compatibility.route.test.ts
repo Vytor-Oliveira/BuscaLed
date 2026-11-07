@@ -43,9 +43,41 @@ describe("Compatibility routes (integração real — Postgres, sem mocks)", () 
     expect(res.status).toBe(400);
   });
 
+  // Era 2099 antes da validacao de ano entrar: ano fora da faixa agora para
+  // em 400, e este teste quer mesmo chegar no 404 de veiculo inexistente.
   it("retorna 404 quando o veículo não está cadastrado", async () => {
-    const res = await request(app).get("/compatibility?make=INEXISTENTE&model=XPTO&year=2099");
+    const res = await request(app).get("/compatibility?make=INEXISTENTE&model=XPTO&year=2020");
     expect(res.status).toBe(404);
+  });
+
+  it("recusa ano que não é ano de carro", async () => {
+    const anoQueVem = new Date().getFullYear() + 2;
+    for (const year of ["abc", "", "1e99", "2020.5", "1800", String(anoQueVem)]) {
+      const res = await request(app).get(
+        `/compatibility?make=INEXISTENTE&model=XPTO&year=${encodeURIComponent(year)}`
+      );
+      expect([year, res.status]).toEqual([year, 400]);
+    }
+  });
+
+  it("recusa marca ou modelo longos demais para serem nome de veículo", async () => {
+    const gigante = "A".repeat(61);
+
+    const comMarca = await request(app).get(
+      `/compatibility?make=${gigante}&model=XPTO&year=2020`
+    );
+    expect(comMarca.status).toBe(400);
+
+    const comModelo = await request(app).get(
+      `/compatibility?make=INEXISTENTE&model=${gigante}&year=2020`
+    );
+    expect(comModelo.status).toBe(400);
+
+    // E nenhuma das duas pode ter virado linha no historico.
+    const gravadas = await prisma.searchHistory.count({
+      where: { OR: [{ make: gigante }, { model: gigante }] },
+    });
+    expect(gravadas).toBe(0);
   });
 
   it("agrupa por posição: dois soquetes na mesma posição (célula composta) e um soquete sem produto", async () => {

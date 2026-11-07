@@ -64,8 +64,21 @@ export class PrismaCompatibilityRepository implements CompatibilityRepository {
   }
 
   async findLedModelsBySocketCodes(socketCodes: string[]): Promise<CompatibleLed[]> {
+    // `select` explicito em vez de trazer a linha inteira: esta rota e publica,
+    // e o custo interno (costCents) nao pode sair daqui nem por descuido de um
+    // spread futuro.
     const models = await this.prisma.ledModel.findMany({
       where: { socketCode: { in: socketCodes } },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        socketCode: true,
+        imageUrl: true,
+        priceCents: true,
+        unitsPerKit: true,
+        stockQty: true,
+      },
     });
 
     return models.map((model) => ({
@@ -74,6 +87,8 @@ export class PrismaCompatibilityRepository implements CompatibilityRepository {
       name: model.name,
       socketCode: model.socketCode,
       imageUrl: model.imageUrl,
+      priceCents: model.priceCents,
+      unitsPerKit: model.unitsPerKit,
       inStock: model.stockQty > 0,
     }));
   }

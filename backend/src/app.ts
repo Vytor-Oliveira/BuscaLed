@@ -10,6 +10,7 @@ import { stockRouter } from "./routes/stock.route";
 import { catalogRouter } from "./routes/catalog.route";
 import { analyticsRouter } from "./routes/analytics.route";
 import { ticketRouter } from "./routes/ticket.route";
+import { DIRETORIO_UPLOADS, PREFIXO_PUBLICO } from "./routes/upload";
 
 export function createApp(): Application {
   const app = express();
@@ -22,6 +23,17 @@ export function createApp(): Application {
   );
   app.use(express.json());
   app.use(cookieParser());
+
+  // Imagens de produto enviadas pelo painel. `index: false` para a pasta nunca
+  // ser listada, e `dotfiles: deny` para arquivo oculto nao ser servido.
+  app.use(
+    PREFIXO_PUBLICO,
+    express.static(DIRETORIO_UPLOADS, {
+      index: false,
+      dotfiles: "deny",
+      maxAge: "7d",
+    })
+  );
 
   app.use("/health", healthRouter);
   app.use("/compatibility", compatibilityRouter);

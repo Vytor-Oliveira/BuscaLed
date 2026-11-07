@@ -21,6 +21,10 @@ export interface CompatibleLed {
   name: string;
   socketCode: string;
   imageUrl: string | null;
+  /** Centavos. Preço de venda sugerido; o custo interno nunca vem aqui. */
+  priceCents: number | null;
+  /** 2 = o kit já traz o par; 1 = unidade avulsa (torpedo). */
+  unitsPerKit: number;
   inStock: boolean;
 }
 

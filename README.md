@@ -45,6 +45,8 @@ do veículo nunca é persistida em nenhuma camada de dados).
 - Cadastro com e-mail/senha ou login social (Google OAuth2)
 - Garagem Virtual: busca de veículo por placa (via apiplacas.com.br) ou Marca/Modelo/Ano manual
 - Motor de compatibilidade multi-posição e multi-modelo, com estoque disponível por modelo
+- Catálogo com preço de venda, foto do produto e quantidade de lâmpadas por kit, mantidos pelo admin no painel
+- Preço de custo e margem visíveis só para quem administra o catálogo, nunca em rota pública
 - Geração de ticket de reserva consolidado, com notificação por e-mail ao representante
 - Tela "Meus Pedidos" para o cliente acompanhar e cancelar pedidos em aberto
 - Edição de produto no ticket pelo representante (mesmo encaixe), com notificação ao cliente
@@ -64,7 +66,12 @@ do veículo nunca é persistida em nenhuma camada de dados).
 
 | Camada | Tecnologia | Justificativa |
 |---|---|---|
-| Frontend | React + Vite | SPA adequado para o MVP acadêmico |
+| Frontend | React 18 + Vite + TypeScript | SPA adequado para o MVP acadêmico |
+| UI | Tailwind CSS 4 + Radix UI | Tokens em CSS variables e primitivos acessíveis (foco, Esc, aria) prontos |
+| Estado de servidor | TanStack Query | Cache, estados de carregamento e invalidação após mutação |
+| Formulários | React Hook Form + Zod | Validação espelhando o schema das rotas |
+| Gráficos | Recharts | Série temporal com tooltip no dashboard de demanda |
+| Ícones | Lucide | Conjunto único de traço consistente |
 | Backend | Node.js + Express | Eficiência em operações I/O-bound (apiplacas.com.br, banco) |
 | ORM | Prisma | Type-safe, migrations e queries parametrizadas (proteção contra SQL Injection) |
 | Banco de dados | PostgreSQL (Azure Database for PostgreSQL) | Relacional, adequado para a matriz multi-modelo e queries analíticas |
@@ -105,7 +112,7 @@ Frontend (React + Vite) ── requisições REST ──▶ Backend API (Node.js
 |---|---|
 | `users` | Clientes, representantes e admins |
 | `vehicles` | Veículos salvos na Garagem Virtual — sem coluna de placa (Privacy by Design) |
-| `products` | Produtos LED com `stock_quantity` e `stock_min_alert` |
+| `products` | Produtos LED com `stock_quantity`, `stock_min_alert`, preço e custo em centavos, foto e lâmpadas por kit |
 | `compatibility_matrix` | Matriz De-Para: modelo/ano de veículo × posição de farol × produto |
 | `tickets` / `ticket_items` | Pedido consolidado e seus itens; registra produto original e substituto quando editado |
 | `search_history` | Histórico analítico de buscas — sem dados de placa |
@@ -149,6 +156,8 @@ na planilha de origem. Sem `--allow-rejects`, a importação termina com código
 - A substituição de produto pelo representante deve respeitar o mesmo tipo de encaixe (RN11)
 - O cliente só pode cancelar o próprio pedido enquanto o status for Novo ou Em Atendimento (RN14)
 - Apenas usuários Admin podem alterar a matriz de compatibilidade e o estoque (RN06)
+- O preço de custo é informação interna: a rota pública de compatibilidade seleciona as colunas que devolve, então o custo não sai de lá nem por descuido futuro (RN06)
+- O kit é o produto, não a quantidade: `units_per_kit` diz quantas lâmpadas vêm na caixa (a linha vem em par, torpedo é avulso), e por isso uma posição em par pede **uma** unidade — pedir duas entregaria o dobro
 
 ## Metas de qualidade (KPIs)
 
@@ -200,6 +209,7 @@ npm run dev
 
 # Frontend
 cd frontend
+cp .env.example .env
 npm install
 npm run dev
 
@@ -207,9 +217,65 @@ npm run dev
 docker compose up -d
 ```
 
+## Interface
+
+A SPA cobre dois públicos em um único design system, com tema claro e escuro
+(alternância manual e respeito a `prefers-color-scheme`) e layout mobile-first.
+
+### Área pública e do cliente
+
+| Rota | Tela |
+|---|---|
+| `/` | Busca por placa ou por marca/modelo/ano na primeira dobra, posições atendidas e dúvidas |
+| `/resultado?make=&model=&year=` | Compatibilidade agrupada por posição de farol, com encaixe, estoque e seleção por posição |
+| `/reserva` | Revisão dos itens, WhatsApp opcional e geração do ticket |
+| `/entrar` (alias `/login`) | Entrar e criar conta, com redirecionamento por papel |
+| `/redefinir-senha` | Nova senha a partir do token, ou pedido de novo link |
+| `/garagem` | Veículos salvos, sem placa |
+| `/pedidos` | Acompanhamento das reservas, com cancelamento (RN14) |
+| `/conta` | Dados da conta, perfil e tema |
+
+### Painel do representante e do administrador
+
+| Rota | Tela | Acesso |
+|---|---|---|
+| `/painel/tickets` | Fila de pedidos com abas por situação, busca, período, exportação CSV e painel lateral de detalhe em `/painel/tickets/:id` | rep, admin |
+| `/painel/demanda` | KPIs do período, buscas por dia e três rankings | rep, admin |
+| `/painel/estoque` | Catálogo com situação de estoque, reposição e cadastro/edição de produto (preço, custo, foto, kit) | admin (RN06) |
+
+### Preço, custo e foto do produto
+
+O admin mantém no painel, pelo mesmo diálogo de cadastro e de edição:
+
+| Campo | Onde aparece |
+|---|---|
+| Preço de venda | Resultado da compatibilidade, reserva e painel. Produto sem preço mostra "sem preço", nunca `R$ 0,00` |
+| Preço de custo | Só no painel de estoque, com a margem calculada ao lado dos campos. Fora da rota pública |
+| Foto | Resultado, reserva e painel. Sem foto, o lugar mostra uma placa com ícone, não um vão |
+| Lâmpadas por kit | Rótulo ao lado do preço ("o kit (par)" ou "a unidade") e o aviso de kit no resultado |
+
+Valores monetários trafegam e são gravados em **centavos inteiros** (`priceCents`,
+`costCents`), e a formatação em `pt-BR` acontece num único lugar do frontend —
+nenhum componente divide por 100.
+
+A foto sobe por `POST /catalog/uploads/imagem` (admin): JPG, PNG, WEBP ou AVIF, até
+3 MB, com nome de arquivo sorteado — o nome que veio do cliente nunca toca o disco.
+Os arquivos ficam em `UPLOAD_DIR` (padrão `./uploads`, criado sozinho) e são
+servidos como estáticos em `/uploads`. **Disco de container é efêmero**: no deploy
+isso precisa apontar para um volume montado ou ser trocado por armazenamento de
+objeto, senão as fotos desaparecem a cada publicação. Veja `backend/.env.example`.
+
+### Variáveis de ambiente do frontend
+
+| Variável | Obrigatória | Para quê |
+|---|---|---|
+| `VITE_API_URL` | sim | URL base da API. Padrão `http://localhost:3000` |
+| `VITE_GOOGLE_CLIENT_ID` | não | Client ID do Google Identity Services. **Sem ela o botão "Continuar com Google" não é renderizado** — um botão que não pode funcionar é pior que botão nenhum |
+
 ## Testes e cobertura
 
-Metas definidas na RFC (RNF05): **75% backend / 25% frontend**.
+Metas definidas na RFC (RNF05): **75% backend / 25% frontend**. O Quality Gate do
+SonarCloud exige, além disso, **80% de cobertura em código novo**.
 
 ```bash
 cd backend && npm run test:cov

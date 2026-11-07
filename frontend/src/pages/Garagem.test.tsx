@@ -1,117 +1,203 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { AuthProvider } from "../auth/AuthContext";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { Route, Routes } from "react-router-dom";
+import type { GarageVehicle } from "../api/vehicles";
 import Garagem from "./Garagem";
+import { mockarApi, renderizarComProvedores, sessaoDe } from "../test/render";
 
-const perfil = { id: "u-1", name: "Carlos Silva", email: "c@example.com", role: "user" as const };
+function veiculo(sobrescreve: Partial<GarageVehicle> = {}): GarageVehicle {
+  return {
+    id: "v-1",
+    make: "VOLKSWAGEN",
+    model: "GOL",
+    year: 2018,
+    createdAt: "2026-11-01T12:00:00.000Z",
+    updatedAt: "2026-11-01T12:00:00.000Z",
+    ...sobrescreve,
+  };
+}
 
-const veiculos = [
-  { id: "v-1", make: "VOLKSWAGEN", model: "GOL", year: 2018, createdAt: "", updatedAt: "" },
-  { id: "v-2", make: "HONDA", model: "CIVIC", year: 2019, createdAt: "", updatedAt: "" },
-];
+function montar(
+  vehicles: GarageVehicle[],
+  extra?: (caminho: string, init?: RequestInit) => unknown
+) {
+  const chamadas = mockarApi((caminho, init) => {
+    if (caminho === "/auth/me") {
+      return sessaoDe("user");
+    }
+    const resposta = extra?.(caminho, init);
+    if (resposta) {
+      return resposta as { ok: boolean; status: number; corpo: unknown };
+    }
+    if (caminho === "/garage" && (init?.method ?? "GET") === "GET") {
+      return { ok: true, status: 200, corpo: { vehicles } };
+    }
+    if (caminho === "/compatibility/makes") {
+      return { ok: true, status: 200, corpo: { makes: ["VOLKSWAGEN"] } };
+    }
+    if (caminho === "/compatibility/models") {
+      return {
+        ok: true,
+        status: 200,
+        corpo: { models: [{ model: "GOL", yearStart: 2008, yearEnd: 2016 }] },
+      };
+    }
+    return { ok: true, status: 200, corpo: {} };
+  });
 
-function mockApi(
-  resolver: (url: string, init?: RequestInit) => { ok: boolean; status: number; corpo: unknown }
-): string[] {
-  const chamadas: string[] = [];
-  globalThis.fetch = ((url: string, init?: RequestInit) => {
-    chamadas.push(`${init?.method ?? "GET"} ${new URL(String(url)).pathname}`);
-    const r = resolver(String(url), init);
-    return Promise.resolve({ ok: r.ok, status: r.status, json: () => Promise.resolve(r.corpo) });
-  }) as unknown as typeof fetch;
+  renderizarComProvedores(
+    <Routes>
+      <Route path="/garagem" element={<Garagem />} />
+      <Route path="/resultado" element={<p>Tela de resultado</p>} />
+    </Routes>,
+    { rota: "/garagem" }
+  );
   return chamadas;
 }
 
-const sessao = { ok: true, status: 200, corpo: { user: perfil } };
-
-function montar(entrada = "/garagem") {
-  return render(
-    <AuthProvider>
-      <MemoryRouter initialEntries={[entrada]}>
-        <Routes>
-          <Route path="/garagem" element={<Garagem />} />
-          <Route path="/resultado" element={<p>Vitrine</p>} />
-        </Routes>
-      </MemoryRouter>
-    </AuthProvider>
-  );
+function naLista() {
+  return within(screen.getByRole("list", { name: "Veículos salvos" }));
 }
 
 describe("Garagem", () => {
-  it("lista os veículos salvos", async () => {
-    mockApi((url) =>
-      url.includes("/garage") ? { ok: true, status: 200, corpo: { vehicles: veiculos } } : sessao
-    );
-    montar();
+  it("lista os veículos salvos sem mostrar placa", async () => {
+    montar([veiculo()]);
 
     expect(await screen.findByText("VOLKSWAGEN GOL")).toBeInTheDocument();
-    expect(screen.getByText("HONDA CIVIC")).toBeInTheDocument();
+    expect(naLista().getByText("Ano 2018")).toBeInTheDocument();
+    // RN02: nenhum dado em formato de placa aparece na lista. (A palavra
+    // "placa" existe na cópia explicativa, e isso é intencional.)
+    expect(
+      naLista().queryByText((texto) =>
+        /^[A-Z]{3}-?[0-9][A-Z0-9][0-9]{2}$/.test(texto.trim())
+      )
+    ).not.toBeInTheDocument();
+  });
+
+  it("liga cada veículo à compatibilidade dele", async () => {
+    montar([veiculo()]);
+
+    const link = await screen.findByRole("link", { name: /Ver LEDs compatíveis/ });
+    expect(link).toHaveAttribute(
+      "href",
+      "/resultado?make=VOLKSWAGEN&model=GOL&year=2018"
+    );
   });
 
   it("avisa quando a garagem está vazia", async () => {
-    mockApi((url) =>
-      url.includes("/garage") ? { ok: true, status: 200, corpo: { vehicles: [] } } : sessao
-    );
-    montar();
+    montar([]);
 
-    expect(await screen.findByText("Nenhum veículo salvo ainda.")).toBeInTheDocument();
+    expect(await screen.findByText("Sua garagem está vazia")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Adicionar meu primeiro veículo/ })
+    ).toBeInTheDocument();
   });
 
-  it("leva para a vitrine com o veículo escolhido", async () => {
-    mockApi((url) =>
-      url.includes("/garage") ? { ok: true, status: 200, corpo: { vehicles: veiculos } } : sessao
+  it("mostra o erro que a API devolveu", async () => {
+    mockarApi((caminho) =>
+      caminho === "/auth/me"
+        ? sessaoDe("user")
+        : { ok: false, status: 500, corpo: { error: "Garagem fora do ar." } }
     );
-    montar();
+    renderizarComProvedores(
+      <Routes>
+        <Route path="/garagem" element={<Garagem />} />
+      </Routes>,
+      { rota: "/garagem" }
+    );
+
+    expect(await screen.findByText("Garagem fora do ar.")).toBeInTheDocument();
+  });
+
+  it("pede confirmação antes de remover", async () => {
+    const chamadas = montar([veiculo()]);
 
     await screen.findByText("VOLKSWAGEN GOL");
-    fireEvent.click(screen.getAllByRole("button", { name: /Buscar LED/ })[0]);
-
-    await waitFor(() => expect(screen.getByText("Vitrine")).toBeInTheDocument());
-  });
-
-  // A Home manda a placa por query quando a pessoa busca sem ter conta.
-  it("já abre o formulário quando vem com placa na URL", async () => {
-    mockApi((url) =>
-      url.includes("/garage") ? { ok: true, status: 200, corpo: { vehicles: [] } } : sessao
+    fireEvent.click(
+      screen.getByRole("button", { name: /Remover VOLKSWAGEN GOL da garagem/ })
     );
-    montar("/garagem?placa=ABC1D23");
 
-    expect(await screen.findByLabelText(/Placa/)).toHaveValue("ABC1D23");
+    expect(await screen.findByText("Remover da garagem?")).toBeInTheDocument();
+    expect(chamadas.some((c) => c.startsWith("DELETE"))).toBe(false);
   });
 
-  it("remove um veículo da lista", async () => {
-    mockApi((url, init) => {
-      if (init?.method === "DELETE") return { ok: true, status: 204, corpo: null };
-      return url.includes("/garage")
-        ? { ok: true, status: 200, corpo: { vehicles: veiculos } }
-        : sessao;
-    });
-    montar();
+  it("remove depois de confirmar", async () => {
+    const chamadas = montar([veiculo()], (caminho, init) =>
+      caminho === "/garage/v-1" && init?.method === "DELETE"
+        ? { ok: true, status: 204, corpo: null }
+        : undefined
+    );
 
     await screen.findByText("VOLKSWAGEN GOL");
-    fireEvent.click(screen.getByRole("button", { name: "Remover VOLKSWAGEN GOL" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Remover VOLKSWAGEN GOL da garagem/ })
+    );
+    await screen.findByText("Remover da garagem?");
+    fireEvent.click(screen.getByRole("button", { name: "Remover" }));
 
-    await waitFor(() => expect(screen.queryByText("VOLKSWAGEN GOL")).not.toBeInTheDocument());
-    expect(screen.getByText("HONDA CIVIC")).toBeInTheDocument();
+    await waitFor(() => expect(chamadas).toContain("DELETE /garage/v-1"));
   });
 
-  it("mostra o erro que a API devolveu ao adicionar", async () => {
-    mockApi((url, init) => {
-      if (init?.method === "POST") {
-        return { ok: false, status: 404, corpo: { error: "Placa não encontrada." } };
-      }
-      return url.includes("/garage")
-        ? { ok: true, status: 200, corpo: { vehicles: [] } }
-        : sessao;
-    });
-    montar("/garagem?placa=ZZZ9Z99");
+  it("abre o diálogo de adicionar com as duas formas de identificar", async () => {
+    montar([veiculo()]);
 
-    const campo = await screen.findByLabelText(/Placa/);
-    fireEvent.change(campo, { target: { value: "ZZZ9Z99" } });
-    fireEvent.click(screen.getByRole("button", { name: "Salvar veículo" }));
+    await screen.findByText("VOLKSWAGEN GOL");
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar veículo/ }));
 
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent("Placa não encontrada.");
-    });
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Pela placa" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Marca, modelo e ano" })).toBeInTheDocument();
+  });
+
+  it("salva veículo pela placa", async () => {
+    const chamadas = montar([], (caminho, init) =>
+      caminho === "/garage" && init?.method === "POST"
+        ? { ok: true, status: 201, corpo: { vehicle: veiculo() } }
+        : undefined
+    );
+
+    await screen.findByText("Sua garagem está vazia");
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar meu primeiro veículo/ }));
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("Placa"), { target: { value: "ABC1D23" } });
+    fireEvent.click(screen.getByRole("button", { name: /Buscar e salvar/ }));
+
+    await waitFor(() => expect(chamadas).toContain("POST /garage"));
+  });
+
+  it("recusa placa inválida antes de chamar a API", async () => {
+    const chamadas = montar([]);
+
+    await screen.findByText("Sua garagem está vazia");
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar meu primeiro veículo/ }));
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("Placa"), { target: { value: "AB" } });
+    fireEvent.click(screen.getByRole("button", { name: /Buscar e salvar/ }));
+
+    expect(await screen.findByText(/Confira a placa/)).toBeInTheDocument();
+    expect(chamadas.filter((c) => c === "POST /garage")).toHaveLength(0);
+  });
+
+  // Fallback automático: falha de placa não trava o cadastro.
+  it("cai para o manual quando a placa falha", async () => {
+    montar([], (caminho, init) =>
+      caminho === "/garage" && init?.method === "POST"
+        ? { ok: false, status: 404, corpo: { error: "Placa não encontrada." } }
+        : undefined
+    );
+
+    await screen.findByText("Sua garagem está vazia");
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar meu primeiro veículo/ }));
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("Placa"), { target: { value: "ABC1D23" } });
+    fireEvent.click(screen.getByRole("button", { name: /Buscar e salvar/ }));
+
+    expect(await screen.findByText(/Não achamos essa placa/)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Marca, modelo e ano" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
   });
 });

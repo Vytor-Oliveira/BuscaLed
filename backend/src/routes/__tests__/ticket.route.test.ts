@@ -282,7 +282,11 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     expect(editAfterComplete.status).toBe(409);
   });
 
-  it("desfaz decrementos já feitos se um item no meio da lista tiver estoque insuficiente", async () => {
+  // Issue #15: antes isto era compensação manual depois do commit de cada
+  // etapa. Agora a conclusão inteira é uma transação, então falha no meio da
+  // lista não deixa rastro — nem no estoque dos itens já visitados, nem no
+  // status do ticket.
+  it("não deixa rastro quando um item no meio da lista não tem estoque", async () => {
     const plentiful = await createLedModel("H4", 10);
     const scarce = await createLedModel("H7", 1);
     createdLedModelIds.push(plentiful.id, scarce.id);
@@ -307,8 +311,48 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     const plentifulAfter = await prisma.ledModel.findUniqueOrThrow({ where: { id: plentiful.id } });
     expect(plentifulAfter.stockQty).toBe(10);
 
+    const scarceAfter = await prisma.ledModel.findUniqueOrThrow({ where: { id: scarce.id } });
+    expect(scarceAfter.stockQty).toBe(1);
+
     const ticketAfter = await prisma.reservation.findUniqueOrThrow({ where: { id: ticketId } });
     expect(ticketAfter.status).toBe("CONFIRMADO");
+  });
+
+  // O caminho feliz só era coberto com um item: um commit que levasse apenas a
+  // primeira baixa passava despercebido.
+  it("conclui ticket de três itens baixando o estoque de todos", async () => {
+    const a = await createLedModel("TESTE-TX", 10);
+    const b = await createLedModel("TESTE-TX", 10);
+    const c = await createLedModel("TESTE-TX", 10);
+    createdLedModelIds.push(a.id, b.id, c.id);
+
+    const createRes = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({
+        items: [
+          { ledModelId: a.id, position: "FAROL_BAIXO", quantity: 1 },
+          { ledModelId: b.id, position: "FAROL_ALTO", quantity: 2 },
+          { ledModelId: c.id, position: "NEBLINA", quantity: 3 },
+        ],
+      });
+    const ticketId = createRes.body.ticket.id;
+    createdTicketIds.push(ticketId);
+
+    await request(app).patch(`/tickets/${ticketId}/confirm`).set("Cookie", rep.cookies);
+    const completeRes = await request(app)
+      .patch(`/tickets/${ticketId}/complete`)
+      .set("Cookie", rep.cookies);
+
+    expect(completeRes.status).toBe(200);
+    expect(completeRes.body.ticket.status).toBe("CONCLUIDO");
+
+    const finais = await prisma.ledModel.findMany({
+      where: { id: { in: [a.id, b.id, c.id] } },
+      select: { id: true, stockQty: true },
+    });
+    const porId = Object.fromEntries(finais.map((m) => [m.id, m.stockQty]));
+    expect([porId[a.id], porId[b.id], porId[c.id]]).toEqual([9, 8, 7]);
   });
 
   it("cliente cancela dentro da janela permitida (RN14); não pode cancelar ticket já concluído", async () => {

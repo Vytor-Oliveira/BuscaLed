@@ -1,4 +1,5 @@
 import { LedModel, Prisma, PrismaClient } from "@prisma/client";
+import { TransactionClient } from "../db/prisma";
 import { InsufficientStockError, LedModelNotFoundError, StockLevel, StockRepository } from "../services/stock/types";
 
 const PRISMA_RECORD_NOT_FOUND_ERROR_CODE = "P2025";
@@ -61,11 +62,16 @@ export class PrismaStockRepository implements StockRepository {
     }
   }
 
-  async decrementStock(ledModelId: string, quantity: number): Promise<StockLevel> {
+  async decrementStock(
+    ledModelId: string,
+    quantity: number,
+    tx?: TransactionClient
+  ): Promise<StockLevel> {
+    const db = tx ?? this.prisma;
     // UPDATE...RETURNING via SQL bruto: nem `update` (sem WHERE extra) nem
     // `updateMany` (sem RETURNING) sozinhos dão a guarda atômica (estoque
     // não fica negativo) + a leitura da linha resultante na mesma operação.
-    const rows = await this.prisma.$queryRaw<LedModel[]>`
+    const rows = await db.$queryRaw<LedModel[]>`
       UPDATE "LedModel"
       SET "stockQty" = "stockQty" - ${quantity}
       WHERE id = ${ledModelId} AND "stockQty" >= ${quantity}
@@ -73,7 +79,7 @@ export class PrismaStockRepository implements StockRepository {
     `;
 
     if (rows.length === 0) {
-      const existing = await this.prisma.ledModel.findUnique({ where: { id: ledModelId } });
+      const existing = await db.ledModel.findUnique({ where: { id: ledModelId } });
       if (!existing) {
         throw new LedModelNotFoundError(ledModelId);
       }

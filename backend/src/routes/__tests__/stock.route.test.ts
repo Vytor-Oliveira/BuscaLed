@@ -111,7 +111,10 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
     await expect(service.decrementStock(ledModel.id, 5)).rejects.toBeInstanceOf(InsufficientStockError);
   });
 
-  it("decrementStock dispara alerta de estoque mínimo quando o novo saldo fica abaixo do mínimo", async () => {
+  // O alerta saiu de dentro do decrementStock (issue #15): dentro de uma
+  // transação o decremento ainda pode voltar atrás, e avisar sobre estoque
+  // desfeito é alarme falso. Quem concluiu chama notifyLowStock após o commit.
+  it("o alerta de estoque mínimo sai no notifyLowStock, não no decremento", async () => {
     const ledModel = await prisma.ledModel.create({
       data: { sku: `TESTE-STOCK-${Date.now()}`, name: "LED de teste", socketCode: "H4", stockQty: 6, stockMin: 5 },
     });
@@ -135,6 +138,10 @@ describe("Stock routes (integração real — Postgres, sem mocks)", () => {
 
     expect(result.stockQty).toBe(3);
     expect(result.belowMinimum).toBe(true);
+    expect(sendLowStockAlert).not.toHaveBeenCalled();
+
+    await service.notifyLowStock([result]);
+
     expect(sendLowStockAlert).toHaveBeenCalledWith(
       "admin@teste.local",
       expect.objectContaining({ sku: ledModel.sku })

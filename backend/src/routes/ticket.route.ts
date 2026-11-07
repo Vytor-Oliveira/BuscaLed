@@ -27,7 +27,8 @@ const ticketService = new TicketService(
   new PrismaTicketRepository(prisma),
   stockService,
   notificationEmailSender,
-  REP_ALERT_EMAIL
+  REP_ALERT_EMAIL,
+  (fn) => prisma.$transaction(fn)
 );
 
 const createTicketSchema = z.object({

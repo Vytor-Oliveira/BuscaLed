@@ -48,6 +48,11 @@ docs/cronograma-academico.md
 docs/guia-outro-computador.md
 docs/*.pdf
 
+# Prompts e material de trabalho de agente de codigo: insumo de desenvolvimento,
+# nao parte do produto nem da entrega. As classes de caractere cobrem qualquer
+# caixa (PROMPT, Prompt, prompt) num padrao so.
+*[Pp][Rr][Oo][Mm][Pp][Tt]*.md
+
 # Prisma
 backend/prisma/*.db
 

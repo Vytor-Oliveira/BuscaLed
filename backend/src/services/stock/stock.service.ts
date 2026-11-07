@@ -1,3 +1,4 @@
+import { TransactionClient } from "../../db/prisma";
 import { EmailSender } from "../notification/types";
 import { InvalidQuantityError, StockLevel, StockRepository } from "./types";
 
@@ -29,26 +30,38 @@ export class StockService {
 
   // RN12 — chamado pelo TicketModule ao concluir um ticket, sem rota pública
   // própria (decrementar fora do fluxo de ticket violaria a regra).
-  async decrementStock(ledModelId: string, quantity: number): Promise<StockLevel> {
+  //
+  // Não alerta: dentro de uma transação o decremento ainda pode ser desfeito,
+  // e avisar sobre estoque que voltou atrás é alarme falso. Quem concluiu
+  // chama notifyLowStock depois do commit.
+  async decrementStock(
+    ledModelId: string,
+    quantity: number,
+    tx?: TransactionClient
+  ): Promise<StockLevel> {
     this.assertValidQuantity(quantity);
-    const updated = await this.repository.decrementStock(ledModelId, quantity);
+    return this.repository.decrementStock(ledModelId, quantity, tx);
+  }
 
-    // Decremento já commitado — falha no alerta não pode derrubar esta chamada.
-    if (updated.belowMinimum) {
+  // RF19 — alerta de estoque mínimo, já com o decremento commitado. Cada envio
+  // é isolado: um e-mail que falha não impede os outros nem derruba quem chamou.
+  async notifyLowStock(levels: StockLevel[]): Promise<void> {
+    for (const level of levels) {
+      if (!level.belowMinimum) {
+        continue;
+      }
       try {
         await this.emailSender.sendLowStockAlert(this.alertRecipient, {
-          sku: updated.sku,
-          name: updated.name,
-          stockQty: updated.stockQty,
-          stockMin: updated.stockMin,
+          sku: level.sku,
+          name: level.name,
+          stockQty: level.stockQty,
+          stockMin: level.stockMin,
         });
       } catch (error) {
         // eslint-disable-next-line no-console
-        console.error(`Falha ao enviar alerta de estoque mínimo para ${updated.sku}:`, error);
+        console.error(`Falha ao enviar alerta de estoque mínimo para ${level.sku}:`, error);
       }
     }
-
-    return updated;
   }
 
   private assertValidQuantity(quantity: number): void {

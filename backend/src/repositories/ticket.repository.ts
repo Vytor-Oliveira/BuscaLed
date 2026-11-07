@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient, ReservationStatus } from "@prisma/client";
+import { TransactionClient } from "../db/prisma";
 import {
   CreateTicketExtras,
   CreateTicketItemInput,
@@ -75,7 +76,16 @@ export class PrismaTicketRepository implements TicketRepository {
   }
 
   async findById(id: string): Promise<TicketRecord | null> {
-    const reservation = await this.prisma.reservation.findUnique({
+    return this.findByIdCom(this.prisma, id);
+  }
+
+  // Dentro de uma transação a leitura precisa ser feita pelo mesmo cliente,
+  // senão enxerga o estado de antes das escritas ainda não commitadas.
+  private async findByIdCom(
+    db: PrismaClient | TransactionClient,
+    id: string
+  ): Promise<TicketRecord | null> {
+    const reservation = await db.reservation.findUnique({
       where: { id },
       include: TICKET_INCLUDE,
     });
@@ -110,15 +120,17 @@ export class PrismaTicketRepository implements TicketRepository {
   async updateStatus(
     id: string,
     allowedFrom: ReservationStatus[],
-    to: ReservationStatus
+    to: ReservationStatus,
+    tx?: TransactionClient
   ): Promise<TicketRecord> {
-    const result = await this.prisma.reservation.updateMany({
+    const db = tx ?? this.prisma;
+    const result = await db.reservation.updateMany({
       where: { id, status: { in: allowedFrom } },
       data: { status: to },
     });
 
     if (result.count === 0) {
-      const existing = await this.prisma.reservation.findUnique({ where: { id } });
+      const existing = await db.reservation.findUnique({ where: { id } });
       if (!existing) {
         throw new TicketNotFoundError(id);
       }
@@ -127,7 +139,7 @@ export class PrismaTicketRepository implements TicketRepository {
       );
     }
 
-    const updated = await this.findById(id);
+    const updated = await this.findByIdCom(db, id);
     if (!updated) {
       throw new TicketNotFoundError(id);
     }

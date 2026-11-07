@@ -1,3 +1,5 @@
+import { TransactionClient } from "../../db/prisma";
+
 export interface StockLevel {
   ledModelId: string;
   sku: string;
@@ -10,7 +12,13 @@ export interface StockLevel {
 export interface StockRepository {
   findById(ledModelId: string): Promise<StockLevel | null>;
   incrementStock(ledModelId: string, quantity: number): Promise<StockLevel>;
-  decrementStock(ledModelId: string, quantity: number): Promise<StockLevel>;
+  // tx permite o decremento entrar na transação de quem chama (RN12: quem
+  // chama é a conclusão do ticket).
+  decrementStock(
+    ledModelId: string,
+    quantity: number,
+    tx?: TransactionClient
+  ): Promise<StockLevel>;
   updateMinimum(ledModelId: string, stockMin: number): Promise<StockLevel>;
 }
 

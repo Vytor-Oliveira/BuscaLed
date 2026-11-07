@@ -2,6 +2,7 @@ import { ReservationStatus } from "@prisma/client";
 import { UserRole } from "../auth/jwt";
 import { EmailSender } from "../notification/types";
 import { StockService } from "../stock/stock.service";
+import { StockLevel } from "../stock/types";
 import {
   CreateTicketExtras,
   CreateTicketItemInput,
@@ -16,6 +17,7 @@ import {
   TicketOwnershipError,
   TicketRecord,
   TicketRepository,
+  TransactionRunner,
 } from "./types";
 
 export class TicketService {
@@ -23,7 +25,8 @@ export class TicketService {
     private readonly repository: TicketRepository,
     private readonly stockService: StockService,
     private readonly emailSender: EmailSender,
-    private readonly repEmail: string
+    private readonly repEmail: string,
+    private readonly runInTransaction: TransactionRunner
   ) {}
 
   async createTicket(
@@ -161,6 +164,11 @@ export class TicketService {
   // decrementando em dobro); concluded.items é um refetch pós-claim, não o
   // snapshot de antes — reflete qualquer edição concorrente que tenha vencido
   // a corrida.
+  //
+  // Tudo numa transação só (issue #15): antes o status e cada decremento eram
+  // escritas separadas, desfeitas à mão no catch. Compensação manual não roda
+  // se o processo cair no meio — deploy, reinício, queda — e aí o ticket fica
+  // CONCLUIDO com o estoque pela metade, sem ninguém para consertar.
   async completeTicket(id: string): Promise<TicketRecord> {
     const ticket = await this.requireExisting(id);
     if (ticket.status !== "CONFIRMADO") {
@@ -169,36 +177,27 @@ export class TicketService {
       );
     }
 
-    const concluded = await this.repository.updateStatus(id, ["CONFIRMADO"], "CONCLUIDO");
+    const { concluded, niveis } = await this.runInTransaction(async (tx) => {
+      const atualizado = await this.repository.updateStatus(
+        id,
+        ["CONFIRMADO"],
+        "CONCLUIDO",
+        tx
+      );
 
-    const decremented: Array<{ ledModelId: string; quantity: number }> = [];
-    try {
-      for (const item of concluded.items) {
-        await this.stockService.decrementStock(item.ledModelId, item.quantity);
-        decremented.push({ ledModelId: item.ledModelId, quantity: item.quantity });
+      const baixados: StockLevel[] = [];
+      for (const item of atualizado.items) {
+        baixados.push(
+          await this.stockService.decrementStock(item.ledModelId, item.quantity, tx)
+        );
       }
-    } catch (error) {
-      // Cada reposição é isolada: uma falha aqui não pode impedir a reversão do
-      // status abaixo, senão o ticket fica CONCLUIDO com estoque pela metade.
-      for (const rollback of decremented) {
-        try {
-          await this.stockService.restock(rollback.ledModelId, rollback.quantity);
-        } catch (restockError) {
-          // eslint-disable-next-line no-console
-          console.error(
-            `Falha ao repor ${rollback.quantity}x ${rollback.ledModelId} do ticket ${id}:`,
-            restockError
-          );
-        }
-      }
-      try {
-        await this.repository.updateStatus(id, ["CONCLUIDO"], "CONFIRMADO");
-      } catch (rollbackError) {
-        // eslint-disable-next-line no-console
-        console.error(`Falha ao reverter status do ticket ${id} após rollback de estoque:`, rollbackError);
-      }
-      throw error;
-    }
+
+      return { concluded: atualizado, niveis: baixados };
+    });
+
+    // Depois do commit: alerta sobre estoque que poderia ter voltado atrás
+    // seria alarme falso, e falha de e-mail não pode desfazer a conclusão.
+    await this.stockService.notifyLowStock(niveis);
 
     return concluded;
   }

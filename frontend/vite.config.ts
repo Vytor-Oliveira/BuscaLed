@@ -2,11 +2,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// Worktree de experimento: o backend dele roda na 3001, com banco proprio, para
-// a migration de preco nao tocar o banco de dev nem o backend da 3000. O proxy
-// deixa as chamadas same-origin, entao o CORS de origem unica sai da jogada e os
-// dois frontends rodam ao mesmo tempo.
-const ALVO_DA_API = "http://localhost:3001";
+// O proxy existe para quem quiser rodar same-origin: apontando VITE_API_URL
+// para o proprio servidor de dev, as chamadas saem sem CORS. Os valores sao os
+// do projeto (backend 3000, FRONTEND_URL 5173) e so mudam por variavel de
+// ambiente — porta de maquina nao entra no arquivo versionado.
+const ALVO_DA_API = process.env.VITE_PROXY_TARGET ?? "http://localhost:3000";
+const PORTA = Number(process.env.VITE_PORT ?? 5173);
 
 const PREFIXOS_DA_API = [
   "/health",
@@ -35,8 +36,9 @@ function padraoDoPrefixo(prefixo: string): string {
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    port: 5174,
-    // Sem strictPort o vite cai para outra porta e o VITE_API_URL aponta errado.
+    port: PORTA,
+    // Sem strictPort o vite cai para outra porta, e aí o CORS do backend
+    // (que libera o FRONTEND_URL) passa a recusar os cookies de sessão.
     strictPort: true,
     proxy: Object.fromEntries(
       PREFIXOS_DA_API.map((prefixo) => [padraoDoPrefixo(prefixo), ALVO_DA_API])

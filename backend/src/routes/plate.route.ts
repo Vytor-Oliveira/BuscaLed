@@ -1,4 +1,6 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import { z } from "zod";
 import { requireAuth } from "../middleware/auth.middleware";
 import { plateLookupService } from "../services/plate/plate.bootstrap";
 import {
@@ -13,9 +15,44 @@ export const plateRouter = Router();
 // Consulta paga com cota por conta: sem usuário não há de quem debitar.
 plateRouter.use(requireAuth);
 
-plateRouter.get("/:placa", async (req, res, next) => {
+// A cota por conta já contém o custo; este limite é contra flood de uma conta
+// só, que encheria o log e o cache sem gastar cota (placa repetida bate no
+// cache antes da cota).
+const consultaRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas consultas seguidas. Tente novamente em alguns minutos." },
+});
+
+// Mercosul (ABC1D23) e o padrão antigo (ABC1234). Sem isso, qualquer string
+// ia direto para a API paga.
+const FORMATO_DE_PLACA = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
+
+const consultaSchema = z.object({
+  // Hífen e espaço são como a pessoa digita, não parte da placa.
+  placa: z
+    .string()
+    .transform((valor) => valor.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+    .refine((valor) => FORMATO_DE_PLACA.test(valor)),
+});
+
+/**
+ * POST, e não GET com a placa no caminho: caminho de URL entra em log de
+ * acesso, log de proxy e histórico do navegador, e a RN02 diz que a placa não
+ * aparece em log nenhum. No corpo ela chega ao serviço e morre ali — o que
+ * volta é só marca, modelo e ano.
+ */
+plateRouter.post("/", consultaRateLimiter, async (req, res, next) => {
+  const parsed = consultaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Placa inválida. Use o formato ABC1D23 ou ABC1234." });
+    return;
+  }
+
   try {
-    const vehicle = await plateLookupService.resolveForUser(req.user!.id, req.params.placa);
+    const vehicle = await plateLookupService.resolveForUser(req.user!.id, parsed.data.placa);
     res.json(vehicle);
   } catch (error) {
     if (error instanceof PlateNotFoundError) {

@@ -1,4 +1,11 @@
 import { LightingPosition, ReservationStatus } from "@prisma/client";
+import { TransactionClient } from "../../db/prisma";
+
+/**
+ * Executa um bloco de escritas numa transação só. Quem fornece é a composição
+ * da rota, que conhece o Prisma; o serviço só precisa saber que existe tudo-ou-nada.
+ */
+export type TransactionRunner = <T>(fn: (tx: TransactionClient) => Promise<T>) => Promise<T>;
 
 // RN14 — status em que o ticket ainda aceita cancelamento e edição de item.
 export const OPEN_STATUSES: ReservationStatus[] = ["PENDENTE", "CONFIRMADO"];
@@ -81,11 +88,13 @@ export interface TicketRepository {
     items: CreateTicketItemInput[],
     extras?: CreateTicketExtras
   ): Promise<TicketRecord>;
-  // Atômica: só efetiva se o status atual estiver em allowedFrom.
+  // Atômica: só efetiva se o status atual estiver em allowedFrom. Recebe tx
+  // quando a mudança de status precisa entrar junto com outras escritas.
   updateStatus(
     id: string,
     allowedFrom: ReservationStatus[],
-    to: ReservationStatus
+    to: ReservationStatus,
+    tx?: TransactionClient
   ): Promise<TicketRecord>;
   findItem(itemId: string): Promise<TicketItemDetail | null>;
   // Atômica: só efetiva se o ticket ainda estiver em OPEN_STATUSES.

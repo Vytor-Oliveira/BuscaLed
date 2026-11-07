@@ -84,7 +84,7 @@ describe("Landing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Confira a placa");
-    expect(chamadas.some((c) => c.includes("/plate/"))).toBe(false);
+    expect(chamadas.some((c) => c.includes("/plate"))).toBe(false);
   });
 
   it("aceita placa Mercosul e placa antiga", () => {
@@ -101,7 +101,7 @@ describe("Landing", () => {
   // KPI de fallback automático: falha de placa move para o manual com aviso.
   it("cai para a busca manual quando a placa falha", async () => {
     montar((caminho) =>
-      caminho.startsWith("/plate/")
+      caminho === "/plate"
         ? { ok: false, status: 404, corpo: { error: "Placa não encontrada." } }
         : undefined
     );
@@ -180,7 +180,7 @@ describe("Landing", () => {
       if (caminho === "/auth/me") {
         return SEM_SESSAO;
       }
-      if (caminho === "/plate/ABC1D23") {
+      if (caminho === "/plate") {
         return {
           ok: true,
           status: 200,
@@ -213,7 +213,7 @@ describe("Landing", () => {
 
   it("leva para o resultado quando a placa resolve", async () => {
     montar((caminho) =>
-      caminho === "/plate/ABC1D23"
+      caminho === "/plate"
         ? {
             ok: true,
             status: 200,

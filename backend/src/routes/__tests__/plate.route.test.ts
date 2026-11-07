@@ -11,8 +11,12 @@ function uniqueEmail(): string {
   return `teste-placa-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
 }
 
+// Placa no formato Mercosul de verdade: a rota passou a validar o formato,
+// entao massa de teste tambem precisa ser placa plausivel.
 function uniquePlate(): string {
-  return `TST${Math.floor(Math.random() * 100000)}`;
+  const letra = () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)];
+  const digito = () => Math.floor(Math.random() * 10);
+  return `${letra()}${letra()}${letra()}${digito()}${letra()}${digito()}${digito()}`;
 }
 
 async function registerAndLogin(): Promise<{ cookies: string[]; email: string }> {
@@ -55,8 +59,52 @@ describe("Plate routes (integração real — Postgres + Redis, sem mocks)", () 
   }, 30_000);
 
   it("bloqueia consulta de placa sem autenticação", async () => {
-    const res = await request(app).get("/plate/ABC1D23");
+    const res = await request(app).post("/plate").send({ placa: "ABC1D23" });
     expect(res.status).toBe(401);
+  });
+
+  // RN02: o caminho da URL entra em log de acesso e de proxy, entao a rota
+  // antiga nao pode continuar existindo em paralelo.
+  it("não atende mais a placa no caminho da URL", async () => {
+    const { cookies, email } = await registerAndLogin();
+    createdEmails.push(email);
+
+    const res = await request(app).get("/plate/ABC1D23").set("Cookie", cookies);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("recusa o que não é placa antes de gastar a cota", async () => {
+    const { cookies, email } = await registerAndLogin();
+    createdEmails.push(email);
+
+    for (const placa of ["", "ABC", "ABC12345", "1234567", "<script>", "ABCD123"]) {
+      const res = await request(app).post("/plate").set("Cookie", cookies).send({ placa });
+      expect([placa, res.status]).toEqual([placa, 400]);
+    }
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    expect(user.plateLookupCount).toBe(0);
+  });
+
+  it("aceita a placa como a pessoa digita: minúscula, com hífen e com espaço", async () => {
+    const { cookies, email } = await registerAndLogin();
+    createdEmails.push(email);
+    const plate = uniquePlate();
+    usedPlates.push(plate);
+    await redis.set(
+      `plate:${plate}`,
+      JSON.stringify({ make: "FIAT", model: "UNO", year: 2010, color: "BRANCO" })
+    );
+
+    const comoDigitado = ` ${plate.slice(0, 3).toLowerCase()}-${plate.slice(3)} `;
+    const res = await request(app)
+      .post("/plate")
+      .set("Cookie", cookies)
+      .send({ placa: comoDigitado });
+
+    expect(res.status).toBe(200);
+    expect(res.body.make).toBe("FIAT");
   });
 
   it("responde pelo cache sem gastar cota", async () => {
@@ -69,7 +117,7 @@ describe("Plate routes (integração real — Postgres + Redis, sem mocks)", () 
       JSON.stringify({ make: "FIAT", model: "UNO", year: 2010, color: "BRANCO" })
     );
 
-    const res = await request(app).get(`/plate/${plate}`).set("Cookie", cookies);
+    const res = await request(app).post("/plate").set("Cookie", cookies).send({ placa: plate });
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ make: "FIAT", model: "UNO", year: 2010, color: "BRANCO" });
@@ -84,7 +132,7 @@ describe("Plate routes (integração real — Postgres + Redis, sem mocks)", () 
     const plate = uniquePlate();
     usedPlates.push(plate);
 
-    const res = await request(app).get(`/plate/${plate}`).set("Cookie", cookies);
+    const res = await request(app).post("/plate").set("Cookie", cookies).send({ placa: plate });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("Limite de 5 consultas de placa a cada 30 dias");

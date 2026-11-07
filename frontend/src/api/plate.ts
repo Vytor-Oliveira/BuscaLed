@@ -7,12 +7,13 @@ export interface VeiculoDaPlaca {
 }
 
 /**
- * RN02: a placa vai na requisição e morre aqui. O que sai desta função é
- * marca, modelo e ano — e é só isso que pode ir para a URL, para o estado ou
- * para qualquer lugar que persista.
+ * RN02: a placa vai no corpo do POST, nunca no caminho da URL — caminho entra
+ * em log de acesso, log de proxy e histórico do navegador. Ela morre aqui: o
+ * que sai desta função é marca, modelo e ano, e é só isso que pode ir para a
+ * URL, para o estado ou para qualquer lugar que persista.
  */
 export function consultarPlaca(placa: string): Promise<VeiculoDaPlaca> {
-  return api<VeiculoDaPlaca>(`/plate/${encodeURIComponent(placa)}`);
+  return api<VeiculoDaPlaca>("/plate", { method: "POST", body: { placa } });
 }
 
 export type MotivoFalhaPlaca =

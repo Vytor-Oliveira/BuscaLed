@@ -171,11 +171,25 @@ export class AuthService {
     try {
       const ticket = await this.googleClient.verifyIdToken({ idToken, audience: googleClientId });
       payload = ticket.getPayload();
-    } catch {
+    } catch (error) {
+      // A biblioteca do Google diz o motivo exato — audiência diferente da
+      // esperada, token expirado, assinatura inválida —, e o erro genérico
+      // abaixo apagava isso. Em produção, falha de login social ficava sem
+      // rastro nenhum no log.
+      // eslint-disable-next-line no-console
+      console.error("Falha ao validar o ID token do Google:", error);
       throw new GoogleTokenInvalidError();
     }
 
     if (!payload?.sub || !payload.email || payload.email_verified !== true) {
+      // Token válido, conteúdo insuficiente: sem isto, este caso e o de cima
+      // produzem a mesma resposta e viram o mesmo mistério.
+      // eslint-disable-next-line no-console
+      console.error("ID token do Google sem os dados necessários:", {
+        temSub: Boolean(payload?.sub),
+        temEmail: Boolean(payload?.email),
+        emailVerificado: payload?.email_verified,
+      });
       throw new GoogleTokenInvalidError();
     }
 

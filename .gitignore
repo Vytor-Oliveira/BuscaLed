@@ -53,6 +53,10 @@ docs/*.pdf
 # caixa (PROMPT, Prompt, prompt) num padrao so.
 *[Pp][Rr][Oo][Mm][Pp][Tt]*.md
 
+# Frontend compilado e copiado para dentro do backend na publicacao: o backend
+# serve a SPA na mesma origem que a API. Artefato de build, nao fonte.
+backend/public/
+
 # Prisma
 backend/prisma/*.db
 

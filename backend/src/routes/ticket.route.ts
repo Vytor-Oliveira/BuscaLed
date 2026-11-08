@@ -11,8 +11,11 @@ import { TicketService } from "../services/ticket/ticket.service";
 import {
   EmptyTicketError,
   IncompatibleSocketError,
+  InsufficientStockForTicketError,
   InvalidStatusTransitionError,
   LedModelNotFoundForTicketError,
+  MAX_QUANTIDADE_POR_ITEM,
+  PositionDoesNotAcceptSocketError,
   TicketItemNotFoundError,
   TicketNotFoundError,
   TicketOwnershipError,
@@ -37,7 +40,7 @@ const createTicketSchema = z.object({
       z.object({
         ledModelId: z.string().min(1),
         position: z.nativeEnum(LightingPosition),
-        quantity: z.number().int().positive(),
+        quantity: z.number().int().positive().max(MAX_QUANTIDADE_POR_ITEM),
       })
     )
     .min(1, "O ticket precisa de pelo menos um item."),
@@ -85,7 +88,12 @@ function handleTicketError(error: unknown, res: Response, next: NextFunction): v
     res.status(404).json({ error: error.message });
     return;
   }
-  if (error instanceof EmptyTicketError || error instanceof IncompatibleSocketError) {
+  if (
+    error instanceof EmptyTicketError ||
+    error instanceof IncompatibleSocketError ||
+    error instanceof InsufficientStockForTicketError ||
+    error instanceof PositionDoesNotAcceptSocketError
+  ) {
     res.status(400).json({ error: error.message });
     return;
   }

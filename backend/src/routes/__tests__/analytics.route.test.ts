@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { LightingPosition } from "@prisma/client";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
@@ -42,6 +43,24 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
   const createdLedModelIds: string[] = [];
   const createdTicketIds: string[] = [];
   const marcasDeTeste: string[] = [];
+  const veiculosSinteticos: string[] = [];
+
+  // A criação de ticket passou a exigir que o soquete seja usado na posição
+  // pedida por algum veículo da matriz (issue #13).
+  async function garantirEncaixe(socketCode: string, position: LightingPosition) {
+    const vehicle = await prisma.vehicleModel.create({
+      data: {
+        make: `TESTE-ENCAIXE-${socketCode}`,
+        model: "MODELO",
+        yearStart: 2000,
+        yearEnd: 2030,
+      },
+    });
+    veiculosSinteticos.push(vehicle.id);
+    await prisma.vehicleFitting.create({
+      data: { vehicleModelId: vehicle.id, position, socketCode },
+    });
+  }
 
   // Reaproveitados: o loginRateLimiter é 10/janela e não aguenta login novo
   // em cada teste deste arquivo.
@@ -63,6 +82,12 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
     }
     if (marcasDeTeste.length > 0) {
       await prisma.searchHistory.deleteMany({ where: { make: { in: marcasDeTeste } } });
+    }
+    if (veiculosSinteticos.length > 0) {
+      await prisma.vehicleFitting.deleteMany({
+        where: { vehicleModelId: { in: veiculosSinteticos } },
+      });
+      await prisma.vehicleModel.deleteMany({ where: { id: { in: veiculosSinteticos } } });
     }
     await prisma.$disconnect();
     await closeNotificationQueue();
@@ -106,11 +131,14 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
         sku: `TESTE-ANALYTICS-CRIT-${runId}`,
         name: "LED critico",
         socketCode: `TESTE-ANALYTICS-${runId}`,
-        stockQty: 1,
+        // 3, não 1: o ticket abaixo pede 3 unidades, e a criação agora recusa
+        // pedido acima do estoque. Segue crítico, porque o mínimo é 5.
+        stockQty: 3,
         stockMin: 5,
       },
     });
     createdLedModelIds.push(critico.id);
+    await garantirEncaixe(`TESTE-ANALYTICS-${runId}`, "FAROL_BAIXO");
 
     // produto pedido: ticket com 3 unidades
     const criado = await request(app)
@@ -132,7 +160,7 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
       totalReserved: 3,
     });
     expect(criticalStock.find((p) => p.sku === critico.sku)).toMatchObject({
-      stockQty: 1,
+      stockQty: 3,
       stockMin: 5,
     });
     expect(topVehicles.find((v) => v.make === marca)).toMatchObject({
@@ -234,6 +262,7 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
       },
     });
     createdLedModelIds.push(led.id);
+    await garantirEncaixe(`TESTE-ANALYTICS-C-${runId}`, "FAROL_BAIXO");
 
     const criado = await request(app)
       .post("/tickets")

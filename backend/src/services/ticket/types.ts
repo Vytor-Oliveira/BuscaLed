@@ -58,7 +58,12 @@ export interface LedModelSummary {
   sku: string;
   name: string;
   socketCode: string;
+  stockQty: number;
 }
+
+// Teto por item na criação do ticket. O fluxo é um veículo, e nenhuma posição
+// de farol leva mais que quatro lâmpadas — 10 deixa folga e barra o absurdo.
+export const MAX_QUANTIDADE_POR_ITEM = 10;
 
 export interface TicketItemDetail {
   id: string;
@@ -105,6 +110,9 @@ export interface TicketRepository {
     originalLedModelId: string | null
   ): Promise<TicketRecord>;
   findLedModel(ledModelId: string): Promise<LedModelSummary | null>;
+  // A matriz diz quais soquetes existem em cada posição. Usado para recusar
+  // pedido impossível já na criação, não só na conclusão.
+  positionAcceptsSocket(position: LightingPosition, socketCode: string): Promise<boolean>;
   findInStockBySocket(socketCode: string, minQty: number): Promise<TicketItemAlternative[]>;
 }
 
@@ -144,6 +152,28 @@ export class IncompatibleSocketError extends Error {
       `Produto incompatível: o item exige o soquete ${expectedSocketCode}, mas o produto informado é ${actualSocketCode}.`
     );
     this.name = "IncompatibleSocketError";
+  }
+}
+
+// Issue #13 — antes, pedir mais do que existe em estoque só falhava quando o
+// representante tentava concluir, com o cliente já avisado de que deu certo.
+export class InsufficientStockForTicketError extends Error {
+  constructor(nome: string, disponivel: number, pedido: number) {
+    super(
+      `Estoque insuficiente para ${nome}: ${disponivel} em estoque, ${pedido} solicitadas.`
+    );
+    this.name = "InsufficientStockForTicketError";
+  }
+}
+
+// Issue #13 — soquete que nenhum veículo da matriz usa naquela posição é
+// pedido impossível: uma lâmpada de placa não entra no farol baixo.
+export class PositionDoesNotAcceptSocketError extends Error {
+  constructor(position: LightingPosition, socketCode: string) {
+    super(
+      `O soquete ${socketCode} não é usado na posição ${position} por nenhum veículo da matriz.`
+    );
+    this.name = "PositionDoesNotAcceptSocketError";
   }
 }
 

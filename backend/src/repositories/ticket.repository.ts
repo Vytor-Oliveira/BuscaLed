@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient, ReservationStatus } from "@prisma/client";
+import { LightingPosition, Prisma, PrismaClient, ReservationStatus } from "@prisma/client";
 import { TransactionClient } from "../db/prisma";
 import {
   CreateTicketExtras,
@@ -192,8 +192,20 @@ export class PrismaTicketRepository implements TicketRepository {
   async findLedModel(ledModelId: string): Promise<LedModelSummary | null> {
     return this.prisma.ledModel.findUnique({
       where: { id: ledModelId },
-      select: { id: true, sku: true, name: true, socketCode: true },
+      select: { id: true, sku: true, name: true, socketCode: true, stockQty: true },
     });
+  }
+
+  async positionAcceptsSocket(
+    position: LightingPosition,
+    socketCode: string
+  ): Promise<boolean> {
+    // count com take: a pergunta é se existe pelo menos um, não quantos.
+    const encontrados = await this.prisma.vehicleFitting.count({
+      where: { position, socketCode },
+      take: 1,
+    });
+    return encontrados > 0;
   }
 
   async findInStockBySocket(

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { LightingPosition } from "@prisma/client";
 import request from "supertest";
 import { createApp } from "../../app";
 import { prisma } from "../../db/prisma";
@@ -27,7 +28,36 @@ async function registerAndLogin(role: "USER" | "REP" | "ADMIN"): Promise<{ cooki
   return { cookies: loginRes.headers["set-cookie"] as unknown as string[], userId: user.id };
 }
 
+const veiculosSinteticos: string[] = [];
+
+/**
+ * A criação de ticket passou a exigir que o soquete seja usado na posição
+ * pedida por algum veículo da matriz (issue #13). Produto de teste sem nenhum
+ * encaixe cadastrado é produto que nenhum carro aceita — então cada um ganha
+ * um veículo sintético que usa o soquete em todas as posições.
+ */
+async function garantirEncaixes(socketCode: string): Promise<void> {
+  const vehicle = await prisma.vehicleModel.create({
+    data: {
+      make: `TESTE-TICKET-${socketCode}`,
+      model: `MODELO-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      yearStart: 2000,
+      yearEnd: 2030,
+    },
+  });
+  veiculosSinteticos.push(vehicle.id);
+
+  await prisma.vehicleFitting.createMany({
+    data: Object.values(LightingPosition).map((position) => ({
+      vehicleModelId: vehicle.id,
+      position,
+      socketCode,
+    })),
+  });
+}
+
 async function createLedModel(socketCode: string, stockQty = 10): Promise<{ id: string; sku: string; name: string }> {
+  await garantirEncaixes(socketCode);
   return prisma.ledModel.create({
     data: {
       sku: `TESTE-TICKET-${socketCode}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -60,6 +90,12 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     }
     if (createdLedModelIds.length > 0) {
       await prisma.ledModel.deleteMany({ where: { id: { in: createdLedModelIds } } });
+    }
+    if (veiculosSinteticos.length > 0) {
+      await prisma.vehicleFitting.deleteMany({
+        where: { vehicleModelId: { in: veiculosSinteticos } },
+      });
+      await prisma.vehicleModel.deleteMany({ where: { id: { in: veiculosSinteticos } } });
     }
     await prisma.$disconnect();
     await closeNotificationQueue();
@@ -248,6 +284,80 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     expect(editedItem.originalLedModelId).toBe(original.id);
   });
 
+  // Issue #13 — estas três validações não existiam: dava para montar um pedido
+  // impossível e só descobrir quando o representante tentasse concluir.
+  it("recusa item com quantidade acima do estoque disponível", async () => {
+    const escasso = await createLedModel("TESTE-VAL", 2);
+    createdLedModelIds.push(escasso.id);
+
+    const res = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: escasso.id, position: "FAROL_BAIXO", quantity: 5 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Estoque insuficiente");
+    expect(res.body.error).toContain(escasso.name);
+  });
+
+  it("recusa quantidade acima do teto por item", async () => {
+    const led = await createLedModel("TESTE-VAL");
+    createdLedModelIds.push(led.id);
+
+    const res = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 500 }] });
+
+    expect(res.status).toBe(400);
+  });
+
+  // Lâmpada de placa pedida como farol baixo: nenhum veículo da matriz usa
+  // esse soquete nessa posição.
+  it("recusa produto cujo soquete não é usado naquela posição", async () => {
+    const soquete = `TESTE-SOQ-${Date.now()}`;
+    const led = await prisma.ledModel.create({
+      data: {
+        sku: `TESTE-SEM-ENCAIXE-${Date.now()}`,
+        name: "LED sem encaixe na matriz",
+        socketCode: soquete,
+        stockQty: 10,
+        stockMin: 2,
+      },
+    });
+    createdLedModelIds.push(led.id);
+
+    // Encaixe existe só em PLACA; o pedido vai em FAROL_BAIXO.
+    const vehicle = await prisma.vehicleModel.create({
+      data: {
+        make: `TESTE-SOQ-${Date.now()}`,
+        model: "MODELO",
+        yearStart: 2000,
+        yearEnd: 2030,
+      },
+    });
+    veiculosSinteticos.push(vehicle.id);
+    await prisma.vehicleFitting.create({
+      data: { vehicleModelId: vehicle.id, position: "PLACA", socketCode: soquete },
+    });
+
+    const res = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "FAROL_BAIXO", quantity: 1 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain(soquete);
+
+    // E aceita na posição em que o soquete é usado de verdade.
+    const aceito = await request(app)
+      .post("/tickets")
+      .set("Cookie", client.cookies)
+      .send({ items: [{ ledModelId: led.id, position: "PLACA", quantity: 1 }] });
+    expect(aceito.status).toBe(201);
+    createdTicketIds.push(aceito.body.ticket.id);
+  });
+
   it("conclui o ticket decrementando o estoque de verdade (RN12); item não pode mais ser editado depois", async () => {
     const led = await createLedModel("H4", 5);
     const otherLed = await createLedModel("H4", 5);
@@ -288,7 +398,7 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
   // status do ticket.
   it("não deixa rastro quando um item no meio da lista não tem estoque", async () => {
     const plentiful = await createLedModel("H4", 10);
-    const scarce = await createLedModel("H7", 1);
+    const scarce = await createLedModel("H7", 10);
     createdLedModelIds.push(plentiful.id, scarce.id);
 
     const createRes = await request(app)
@@ -304,6 +414,12 @@ describe("Ticket routes (integração real — Postgres, sem mocks)", () => {
     createdTicketIds.push(ticketId);
 
     await request(app).patch(`/tickets/${ticketId}/confirm`).set("Cookie", rep.cookies);
+
+    // O estoque cai depois da criação — outro pedido levou as unidades antes
+    // deste ser concluído. Desde a issue #13 a criação recusa pedido acima do
+    // estoque, então é esta corrida, e não o pedido impossível, que ainda
+    // chega no Concluir.
+    await prisma.ledModel.update({ where: { id: scarce.id }, data: { stockQty: 1 } });
 
     const completeRes = await request(app).patch(`/tickets/${ticketId}/complete`).set("Cookie", rep.cookies);
     expect(completeRes.status).toBe(400);

@@ -32,6 +32,24 @@ export function createNotificationQueue(
       removeOnComplete: true,
       removeOnFail: 100,
     },
+    // O Redis gerenciado do plano gratuito cobra por comando (500 mil/mês), e o
+    // Bull consulta o Redis mesmo com a fila vazia. Com os padrões — guarda a
+    // cada 5s, bloqueio de leitura de 5s, varredura de travados a cada 30s — são
+    // cerca de 37 mil comandos por dia, 1,1 milhão por mês: o dobro da cota, sem
+    // um único usuário no ar.
+    //
+    // Medido contra um Redis real, com a fila ociosa: o padrão dá 59 comandos
+    // por minuto (~2,5 milhões/mês) e os valores abaixo dão 4 (~173 mil/mês).
+    //
+    // O preço é que um job atrasado — retentativa com backoff — pode demorar até
+    // 60s a mais para ser pego, e um job travado até 5 min para ser detectado.
+    // Job novo não é afetado: o BRPOPLPUSH retorna assim que algo entra na fila,
+    // não no fim do intervalo.
+    settings: {
+      guardInterval: 60_000,
+      stalledInterval: 300_000,
+      drainDelay: 300,
+    },
   });
 
   // Sem listener, um erro de conexão com o Redis derruba o processo inteiro.

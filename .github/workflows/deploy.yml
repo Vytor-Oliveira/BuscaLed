@@ -1,0 +1,65 @@
+name: Deploy
+
+# Publica no Azure a cada merge na main, e sob demanda pelo botao do Actions.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: buscaled
+  # Mesma versao do runtime do App Service. O bcrypt e compilado nativo: binario
+  # feito numa versao nao carrega em outra, e o erro so aparece no primeiro login.
+  NODE_VERSION: "22"
+
+jobs:
+  deploy:
+    name: Publica no Azure App Service
+    runs-on: ubuntu-latest
+    environment:
+      name: producao
+      url: ${{ steps.publicacao.outputs.webapp-url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # O frontend e servido pelo proprio backend, na mesma origem: VITE_API_URL
+      # vazio faz as chamadas sairem relativas. Origem separada quebraria o
+      # cookie de sessao, que e SameSite=Lax.
+      - name: Compila o frontend
+        working-directory: ./frontend
+        env:
+          VITE_API_URL: ""
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Compila o backend
+        working-directory: ./backend
+        run: |
+          npm ci
+          npm run build
+
+      # Depois da poda, nao antes: o prisma generate escreve dentro de
+      # node_modules e a poda poderia levar o que ele gerou.
+      - name: Remove dependencias de desenvolvimento e gera o cliente Prisma
+        working-directory: ./backend
+        run: |
+          npm prune --omit=dev
+          npx prisma generate
+
+      - name: Junta o frontend compilado ao pacote do backend
+        run: cp -r frontend/dist backend/public
+
+      - name: Publica
+        id: publicacao
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./backend

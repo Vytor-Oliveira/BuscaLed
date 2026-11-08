@@ -8,9 +8,11 @@ import {
   CreateTicketItemInput,
   EmptyTicketError,
   IncompatibleSocketError,
+  InsufficientStockForTicketError,
   InvalidStatusTransitionError,
   LedModelNotFoundForTicketError,
   OPEN_STATUSES,
+  PositionDoesNotAcceptSocketError,
   TicketItemAlternative,
   TicketItemNotFoundError,
   TicketNotFoundError,
@@ -43,6 +45,34 @@ export class TicketService {
     if (missingIndex !== -1) {
       throw new LedModelNotFoundForTicketError(items[missingIndex].ledModelId);
     }
+
+    // Issue #13 — antes, só a existência do produto era checada: dava para
+    // pedir 500 unidades de uma lâmpada de placa como farol baixo, e o erro
+    // só aparecia quando o representante tentava concluir, com o cliente já
+    // tendo visto a tela de sucesso.
+    await Promise.all(
+      items.map(async (item, indice) => {
+        const model = foundLedModels[indice]!;
+
+        if (item.quantity > model.stockQty) {
+          throw new InsufficientStockForTicketError(
+            model.name,
+            model.stockQty,
+            item.quantity
+          );
+        }
+
+        // Falha rápida, não reserva: o estoque ainda pode mudar até a
+        // conclusão, e é lá que ele é de fato decrementado (RN12).
+        const aceita = await this.repository.positionAcceptsSocket(
+          item.position,
+          model.socketCode
+        );
+        if (!aceita) {
+          throw new PositionDoesNotAcceptSocketError(item.position, model.socketCode);
+        }
+      })
+    );
 
     const ticket = await this.repository.create(userId, items, extras);
     await this.notify(() =>

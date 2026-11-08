@@ -43,6 +43,16 @@ describe("Rotas desconhecidas", () => {
     }
   );
 
+  // Sem o frontend empacotado — que é o caso em desenvolvimento — caminho
+  // desconhecido que não é API passa reto pelo handler de JSON e cai no 404
+  // padrão do Express. Em produção o fallback da SPA pega antes.
+  it("deixa passar caminho que não é de API", async () => {
+    const res = await request(app).get("/qualquer-coisa");
+
+    expect(res.status).toBe(404);
+    expect(res.headers["content-type"]).not.toMatch(/application\/json/);
+  });
+
   it("não transforma em 404 uma rota de API que existe", async () => {
     const res = await request(app).get("/health");
 

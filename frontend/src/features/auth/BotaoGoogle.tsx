@@ -99,7 +99,6 @@ export function BotaoGoogle({
 
   return (
     <div className="flex flex-col gap-4">
-      <div ref={alvo} className="flex justify-center [color-scheme:light]" />
       <div className="flex items-center gap-3">
         <span aria-hidden className="h-px flex-1 bg-line" />
         <span className="text-[12px] font-semibold uppercase tracking-wider text-subtle">
@@ -107,6 +106,7 @@ export function BotaoGoogle({
         </span>
         <span aria-hidden className="h-px flex-1 bg-line" />
       </div>
+      <div ref={alvo} className="flex justify-center [color-scheme:light]" />
     </div>
   );
 }

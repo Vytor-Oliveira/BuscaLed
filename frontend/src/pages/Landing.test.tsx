@@ -118,6 +118,28 @@ describe("Landing", () => {
     );
   });
 
+  // Visitante sem conta: a rota da placa devolve 401, e antes disso a tela
+  // mostrava "Não autenticado." cru, sem dizer o que fazer.
+  it("convida a entrar quando a consulta por placa exige conta", async () => {
+    montar((caminho) =>
+      caminho === "/plate"
+        ? { ok: false, status: 401, corpo: { error: "Não autenticado." } }
+        : undefined
+    );
+
+    fireEvent.change(screen.getByLabelText("Placa do veículo"), {
+      target: { value: "ABC1D23" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+
+    const aviso = await screen.findByRole("status");
+    expect(aviso).toHaveTextContent("A consulta por placa é só para quem tem conta.");
+    expect(aviso).not.toHaveTextContent(/autenticado/i);
+
+    const link = screen.getByRole("link", { name: "Entre na sua conta" });
+    expect(link).toHaveAttribute("href", "/entrar");
+  });
+
   it("explica que a placa não é armazenada", () => {
     montar();
 

@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AlertTriangle, Car, Search, ShieldCheck } from "lucide-react";
 import { listarMarcas, listarModelos } from "../../api/compatibility";
-import { consultarPlaca, interpretarFalhaDePlaca } from "../../api/plate";
+import { Link } from "react-router-dom";
+import { consultarPlaca, interpretarFalhaDePlaca, type FalhaPlaca } from "../../api/plate";
 import { mascaraPlaca, placaValida } from "../../lib/formato";
 import { anosDoModelo, nomesDeModelo } from "../../lib/veiculo";
 import { cn } from "../../lib/cn";
@@ -29,7 +30,7 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Props) {
   const [placa, setPlaca] = useState("");
   const [erroPlaca, setErroPlaca] = useState("");
   const [consultando, setConsultando] = useState(false);
-  const [avisoFallback, setAvisoFallback] = useState("");
+  const [falhaDaPlaca, setFalhaDaPlaca] = useState<FalhaPlaca | null>(null);
 
   const [marca, setMarca] = useState("");
   const [modelo, setModelo] = useState("");
@@ -74,7 +75,7 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Props) {
 
   async function enviarPlaca(evento: FormEvent) {
     evento.preventDefault();
-    setAvisoFallback("");
+    setFalhaDaPlaca(null);
 
     if (!placaValida(placa)) {
       setErroPlaca("Confira a placa: são 7 caracteres, como ABC1D23 ou ABC1234.");
@@ -91,8 +92,7 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Props) {
     } catch (erro) {
       // KPI de fallback automático: a falha move o visitante para o manual,
       // já com o aviso do que aconteceu, em vez de deixá-lo travado.
-      const { mensagem } = interpretarFalhaDePlaca(erro);
-      setAvisoFallback(mensagem);
+      setFalhaDaPlaca(interpretarFalhaDePlaca(erro));
       setAba("manual");
     } finally {
       setConsultando(false);
@@ -175,7 +175,7 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Props) {
         </TabsContent>
 
         <TabsContent value="manual" className={cn(heroi ? "p-5 pt-4" : "p-4 pt-3")}>
-          {avisoFallback && (
+          {falhaDaPlaca && (
             <p
               role="status"
               className={cn(
@@ -184,7 +184,17 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Props) {
               )}
             >
               <AlertTriangle aria-hidden className="mt-px size-4 shrink-0" />
-              {avisoFallback}
+              <span>
+                {falhaDaPlaca.mensagem}{" "}
+                {falhaDaPlaca.motivo === "precisa-entrar" ? (
+                  <>
+                    <Link to="/entrar" className="font-semibold underline underline-offset-2">
+                      Entre na sua conta
+                    </Link>{" "}
+                    ou informe o veículo abaixo.
+                  </>
+                ) : null}
+              </span>
             </p>
           )}
 

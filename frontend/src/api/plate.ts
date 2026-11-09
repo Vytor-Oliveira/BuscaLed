@@ -18,6 +18,7 @@ export function consultarPlaca(placa: string): Promise<VeiculoDaPlaca> {
 
 export type MotivoFalhaPlaca =
   | "nao-encontrada"
+  | "precisa-entrar"
   | "indisponivel"
   | "demorou"
   | "cota"
@@ -42,6 +43,13 @@ export function interpretarFalhaDePlaca(erro: unknown): FalhaPlaca {
   }
 
   switch (erro.status) {
+    // A rota exige conta: a consulta e paga e a cota e por usuario. Sem este
+    // caso o visitante recebia "Nao autenticado." cru, que nao diz o que fazer.
+    case 401:
+      return {
+        motivo: "precisa-entrar",
+        mensagem: "A consulta por placa é só para quem tem conta.",
+      };
     case 404:
       return {
         motivo: "nao-encontrada",

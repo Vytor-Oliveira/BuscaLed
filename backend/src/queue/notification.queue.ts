@@ -1,4 +1,5 @@
 import Queue from "bull";
+import Redis, { RedisOptions } from "ioredis";
 import {
   EmailSender,
   NewTicketInfo,
@@ -21,7 +22,23 @@ export function createNotificationQueue(
   queueName: string = NOTIFICATION_QUEUE_NAME
 ): Queue.Queue<NotificationJob> {
   const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+
+  // O App Service descarta conexão de saída que fica cerca de 4 minutos sem
+  // trafegar nada. A conexão de pub/sub do Bull é ociosa por natureza, então
+  // era derrubada em ciclo e o log enchia de ECONNRESET. O keepalive mantém o
+  // socket vivo sem depender de haver mensagem.
+  const comKeepAlive: RedisOptions = { keepAlive: 30_000 };
+
   const queue = new Queue<NotificationJob>(queueName, redisUrl, {
+    // O Bull exige estas duas opções nas conexões de bloqueio e de pub/sub.
+    createClient: (tipo) =>
+      tipo === "client"
+        ? new Redis(redisUrl, comKeepAlive)
+        : new Redis(redisUrl, {
+            ...comKeepAlive,
+            maxRetriesPerRequest: null,
+            enableReadyCheck: false,
+          }),
     defaultJobOptions: {
       // O padrão do Bull é 1 tentativa: uma oscilação do SMTP perderia o
       // e-mail de vez, que é justamente o que a fila deveria evitar.
@@ -39,7 +56,13 @@ export function createNotificationQueue(
     // um único usuário no ar.
     //
     // Medido contra um Redis real, com a fila ociosa: o padrão dá 59 comandos
-    // por minuto (~2,5 milhões/mês) e os valores abaixo dão 4 (~173 mil/mês).
+    // por minuto (~2,5 milhões/mês) e os valores abaixo dão por volta de 4-5
+    // (~190 mil/mês), contra uma cota gratuita de 500 mil.
+    //
+    // drainDelay é 120 e não 300 de propósito: com 300 a leitura bloqueante
+    // ficava 5 minutos em silêncio e o App Service cortava a conexão antes de
+    // ela responder. Precisa ficar abaixo dos ~4 minutos de ociosidade que a
+    // infraestrutura tolera.
     //
     // O preço é que um job atrasado — retentativa com backoff — pode demorar até
     // 60s a mais para ser pego, e um job travado até 5 min para ser detectado.
@@ -48,7 +71,7 @@ export function createNotificationQueue(
     settings: {
       guardInterval: 60_000,
       stalledInterval: 300_000,
-      drainDelay: 300,
+      drainDelay: 120,
     },
   });
 

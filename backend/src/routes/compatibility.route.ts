@@ -1,7 +1,7 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
+import { criarRateLimiter } from "../middleware/rate-limit";
 import { PrismaCompatibilityRepository } from "../repositories/compatibility.repository";
 import { PrismaSearchHistoryRepository } from "../repositories/search-history.repository";
 import { CompatibilityService } from "../services/compatibility/compatibility.service";
@@ -22,11 +22,9 @@ const service = new CompatibilityService(
 // linha em SearchHistory, inclusive a sem resultado, entao sem limite da para
 // inflar a tabela e distorcer o dashboard de demanda. 60/15min por IP deixa
 // folga para quem compara varios carros e corta flood.
-const buscaRateLimiter = rateLimit({
+const buscaRateLimiter = criarRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { error: "Muitas consultas seguidas. Tente novamente em alguns minutos." },
 });
 

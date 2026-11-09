@@ -1,4 +1,4 @@
-import { api, ApiError } from "./client";
+import { api, ApiError, baseDaApi } from "./client";
 
 export interface LedModel {
   id: string;
@@ -74,8 +74,7 @@ export async function enviarImagemProduto(arquivo: File): Promise<string> {
   const corpo = new FormData();
   corpo.append("imagem", arquivo);
 
-  const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3000";
-  const resposta = await fetch(new URL("/catalog/uploads/imagem", base), {
+  const resposta = await fetch(new URL("/catalog/uploads/imagem", baseDaApi()), {
     method: "POST",
     credentials: "include",
     body: corpo,

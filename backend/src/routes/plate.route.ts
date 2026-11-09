@@ -1,7 +1,7 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { requireAuth } from "../middleware/auth.middleware";
+import { criarRateLimiter } from "../middleware/rate-limit";
 import { plateLookupService } from "../services/plate/plate.bootstrap";
 import {
   PlateLookupLimitExceededError,
@@ -18,11 +18,9 @@ plateRouter.use(requireAuth);
 // A cota por conta já contém o custo; este limite é contra flood de uma conta
 // só, que encheria o log e o cache sem gastar cota (placa repetida bate no
 // cache antes da cota).
-const consultaRateLimiter = rateLimit({
+const consultaRateLimiter = criarRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { error: "Muitas consultas seguidas. Tente novamente em alguns minutos." },
 });
 

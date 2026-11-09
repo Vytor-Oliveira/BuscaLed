@@ -1,10 +1,10 @@
 import { Response, Router } from "express";
-import rateLimit from "express-rate-limit";
 import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
 import { notificationEmailSender } from "../queue/notification.bootstrap";
 import { requireAuth } from "../middleware/auth.middleware";
+import { criarRateLimiter } from "../middleware/rate-limit";
 import { PrismaUserRepository } from "../repositories/user.repository";
 import { AuthService } from "../services/auth/auth.service";
 import { AuthTokens } from "../services/auth/types";
@@ -51,11 +51,9 @@ function setAuthCookies(res: Response, tokens: AuthTokens): void {
 }
 
 // RFC — Seção 6.1 (OWASP A07): exatamente 10 tentativas/15min no login.
-const loginRateLimiter = rateLimit({
+const loginRateLimiter = criarRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { error: "Muitas tentativas de login. Tente novamente mais tarde." },
 });
 
@@ -63,11 +61,9 @@ const loginRateLimiter = rateLimit({
 // é algo que a mesma pessoa repete várias vezes seguidas em uso normal) —
 // limite mais generoso, mas ainda existe, pra não deixar sem nenhuma
 // proteção contra flood/enumeração de e-mail.
-const registrationRateLimiter = rateLimit({
+const registrationRateLimiter = criarRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { error: "Muitas tentativas. Tente novamente mais tarde." },
 });
 

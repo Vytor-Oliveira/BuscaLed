@@ -26,15 +26,20 @@ describe("Compatibilidade — limite de consultas (integração real)", () => {
     // Ano invalido de proposito: o limitador roda antes do handler, entao a
     // cota e consumida sem escrever 60 linhas em SearchHistory nem bater na
     // matriz. O que se verifica aqui e a contagem, nao a busca.
-    const consumir = () =>
-      request(app).get("/compatibility?make=LIMITE&model=XPTO&year=1800");
+    // Porta diferente a cada chamada de proposito: e assim que o App Service
+    // escreve o X-Forwarded-For. Sem descartar a porta, cada requisicao vira
+    // uma chave nova e o 429 nunca chega.
+    const consumir = (porta: number) =>
+      request(app)
+        .get("/compatibility?make=LIMITE&model=XPTO&year=1800")
+        .set("X-Forwarded-For", `203.0.113.7:${40000 + porta}`);
 
     for (let i = 0; i < MAX; i += 1) {
-      const res = await consumir();
+      const res = await consumir(i);
       expect([i, res.status]).toEqual([i, 400]);
     }
 
-    const estourou = await consumir();
+    const estourou = await consumir(MAX);
     expect(estourou.status).toBe(429);
     expect(estourou.body.error).toMatch(/muitas consultas/i);
 

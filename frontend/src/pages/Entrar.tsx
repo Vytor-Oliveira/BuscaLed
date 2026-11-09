@@ -124,7 +124,9 @@ export default function Entrar() {
           <h2 className="text-[2rem] font-bold leading-tight tracking-[-0.03em] text-white">
             A resposta vem por posição de farol
           </h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-brand-100">
+          {/* brand-200, não brand-100: o brand-100 é redefinido no tema escuro
+              para um azul quase igual a este fundo fixo, e o texto sumia. */}
+          <p className="mt-4 text-[15px] leading-relaxed text-brand-200">
             Farol baixo, alto, neblina e lanterna usam encaixes diferentes no mesmo
             carro. Entre para salvar seus veículos e acompanhar seus pedidos.
           </p>
@@ -134,7 +136,7 @@ export default function Entrar() {
               { Icone: Sparkles, texto: "Garagem virtual com seus carros salvos." },
               { Icone: CheckCircle2, texto: "Acompanhamento de cada reserva." },
             ].map(({ Icone, texto }) => (
-              <li key={texto} className="flex items-center gap-3 text-[14px] text-brand-100">
+              <li key={texto} className="flex items-center gap-3 text-[14px] text-brand-200">
                 <Icone aria-hidden className="size-4.5 shrink-0 text-accent-400" />
                 {texto}
               </li>
@@ -191,13 +193,6 @@ export default function Entrar() {
                 <TabsTrigger value="entrar">Entrar</TabsTrigger>
                 <TabsTrigger value="criar">Criar conta</TabsTrigger>
               </TabsList>
-
-              <div className="mt-6">
-                <BotaoGoogle
-                  onEntrou={() => window.location.assign(origem ?? "/garagem")}
-                  onErro={setErro}
-                />
-              </div>
 
               <form onSubmit={submeter} noValidate className="mt-5 flex flex-col gap-4">
                 <TabsContent value="criar" className="flex flex-col gap-4">
@@ -268,6 +263,13 @@ export default function Entrar() {
                   {criando ? "Criar minha conta" : "Entrar na minha conta"}
                 </Button>
               </form>
+
+              <div className="mt-6">
+                <BotaoGoogle
+                  onEntrou={() => window.location.assign(origem ?? "/garagem")}
+                  onErro={setErro}
+                />
+              </div>
             </Tabs>
           </div>
 

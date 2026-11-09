@@ -1,4 +1,10 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+// Em produção a API vem do mesmo servidor da SPA e VITE_API_URL é vazia. String
+// vazia não é base válida para `new URL` — por isso o fallback é a origem da
+// página, e não o endereço de desenvolvimento.
+export function baseDaApi(): string {
+  const configurada = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+  return configurada === "" ? window.location.origin : configurada;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -17,7 +23,7 @@ interface RequestOptions {
 }
 
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
-  const url = new URL(path, API_URL);
+  const url = new URL(path, baseDaApi());
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined && value !== "") {
       url.searchParams.set(key, String(value));
@@ -64,7 +70,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
   } catch {
-    throw new ApiError(0, `Não foi possível falar com a API em ${API_URL}.`);
+    throw new ApiError(0, `Não foi possível falar com a API em ${baseDaApi()}.`);
   }
 
   if (response.status === 204) {

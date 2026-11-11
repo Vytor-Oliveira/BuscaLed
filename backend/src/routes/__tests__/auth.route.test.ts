@@ -165,9 +165,18 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
   });
   // O cookie e httpOnly: sem este endpoint o frontend nao tem como saber quem
   // esta logado nem qual o papel, o que o painel do M5 precisa pra rotear.
-  it("GET /auth/me devolve o perfil do usuario logado e nega sem sessao", async () => {
+  it("GET /auth/me devolve o perfil de quem entrou e user null para visitante", async () => {
+    // Visitante nao e erro: 200 com user null. Ja foi 401, e cada carregamento
+    // de pagina de quem nao entrou virava um erro no monitoramento.
     const semSessao = await request(app).get("/auth/me");
-    expect(semSessao.status).toBe(401);
+    expect(semSessao.status).toBe(200);
+    expect(semSessao.body).toEqual({ user: null });
+
+    const cookieEstragado = await request(app)
+      .get("/auth/me")
+      .set("Cookie", ["access_token=nao-e-um-jwt"]);
+    expect(cookieEstragado.status).toBe(200);
+    expect(cookieEstragado.body).toEqual({ user: null });
 
     const email = uniqueEmail();
     await request(app)

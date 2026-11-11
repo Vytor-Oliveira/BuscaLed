@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { z } from "zod";
 import { prisma } from "../db/prisma";
 import { notificationEmailSender } from "../queue/notification.bootstrap";
-import { requireAuth } from "../middleware/auth.middleware";
+import { optionalAuth } from "../middleware/auth.middleware";
 import { criarRateLimiter } from "../middleware/rate-limit";
 import { PrismaUserRepository } from "../repositories/user.repository";
 import { AuthService } from "../services/auth/auth.service";
@@ -215,15 +215,21 @@ authRouter.post("/refresh", async (req, res) => {
   }
 });
 
-authRouter.get("/me", requireAuth, async (req, res, next) => {
+// optionalAuth, nao requireAuth: "quem sou eu" tem resposta para visitante, e
+// ela e "ninguem". Devolver 401 aqui tratava falta de sessao como falha de
+// autenticacao, o que enchia o monitoramento de erro que nao era erro — o
+// frontend chama esta rota a cada carregamento de pagina.
+authRouter.get("/me", optionalAuth, async (req, res, next) => {
   try {
-    const profile = await authService.getProfile(req.user!.id);
-    if (!profile) {
-      // Token valido de usuario que nao existe mais: sessao morta.
-      res.status(401).json({ error: "Sessão inválida ou expirada." });
+    if (!req.user) {
+      res.json({ user: null });
       return;
     }
-    res.json({ user: profile });
+
+    // Token valido de usuario que nao existe mais: a sessao nao vale, e o
+    // efeito pratico e o mesmo de nao ter entrado.
+    const profile = await authService.getProfile(req.user.id);
+    res.json({ user: profile ?? null });
   } catch (error) {
     next(error);
   }

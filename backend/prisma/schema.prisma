@@ -196,3 +196,23 @@ model SearchHistory {
   @@index([createdAt])
   @@index([make, model])
 }
+
+// Segunda camada do cache de placa, atrás do Redis. Existe porque perder o
+// cache custa consulta paga: conexão derrubada por ociosidade, Redis fora do
+// ar ou cota do provedor estourada passariam a cobrar de novo pela mesma
+// placa.
+//
+// RN02 continua valendo: a linha guarda só o que a consulta devolve, e não
+// tem userId nem data de quem consultou — não dá para ligar placa a pessoa.
+// expiresAt existe para a placa sumir sozinha, e não ficar guardada para
+// sempre.
+model PlateCache {
+  plate     String   @id
+  make      String
+  model     String
+  year      Int
+  color     String?
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

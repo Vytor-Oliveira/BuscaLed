@@ -1,4 +1,5 @@
 import type Redis from "ioredis";
+import { PlateCacheRepository } from "../../repositories/plate-cache.repository";
 import { PlateLookupRepository } from "../../repositories/plate-lookup.repository";
 import {
   PlateInfo,
@@ -16,8 +17,12 @@ const MAX_LOOKUPS_PER_WINDOW = 5;
 const WINDOW_DAYS = 30;
 const WINDOW_MS = WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
+function normalizar(plate: string): string {
+  return plate.trim().toUpperCase();
+}
+
 function cacheKey(plate: string): string {
-  return `plate:${plate.trim().toUpperCase()}`;
+  return `plate:${normalizar(plate)}`;
 }
 
 /**
@@ -27,12 +32,17 @@ function cacheKey(plate: string): string {
  * RN02 — a chave do cache é a placa, mas o valor é só marca/modelo/ano e nada
  * no Redis liga a placa a uma conta. O que fica por usuário é o número de
  * consultas, nunca quais placas.
+ *
+ * O cache tem duas camadas: Redis na frente, pela latência, e Postgres atrás,
+ * porque perder o Redis custa consulta paga. A segunda camada reaquece a
+ * primeira, então a queda do Redis encarece uma vez, não sempre.
  */
 export class PlateLookupService {
   constructor(
     private readonly plateService: PlateService,
     private readonly redis: Redis,
-    private readonly repository: PlateLookupRepository
+    private readonly repository: PlateLookupRepository,
+    private readonly cacheRepository: PlateCacheRepository
   ) {}
 
   async resolveForUser(userId: string, plate: string): Promise<PlateInfo> {
@@ -43,6 +53,14 @@ export class PlateLookupService {
     const cached = await this.lerCache(key);
     if (cached) {
       return cached;
+    }
+
+    // Segunda camada: o Redis pode ter caído ou perdido a conexão, mas a placa
+    // já foi paga uma vez. Reaquece o Redis para a próxima não vir até aqui.
+    const persistido = await this.lerCachePersistido(plate);
+    if (persistido) {
+      await this.gravarCache(key, persistido);
+      return persistido;
     }
 
     const gastas = await this.repository.incrementIfUnder(
@@ -71,6 +89,7 @@ export class PlateLookupService {
     }
 
     await this.gravarCache(key, info);
+    await this.gravarCachePersistido(plate, info);
     return info;
   }
 
@@ -87,6 +106,30 @@ export class PlateLookupService {
       // eslint-disable-next-line no-console
       console.error("Cache de placa indisponível na leitura:", error);
       return null;
+    }
+  }
+
+  /**
+   * Banco indisponível responde como cache vazio, mesma política do Redis: o
+   * cache é otimização de custo, não dependência da funcionalidade.
+   */
+  private async lerCachePersistido(plate: string): Promise<PlateInfo | null> {
+    try {
+      return await this.cacheRepository.buscar(normalizar(plate));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Cache de placa no banco indisponível na leitura:", error);
+      return null;
+    }
+  }
+
+  private async gravarCachePersistido(plate: string, info: PlateInfo): Promise<void> {
+    try {
+      const expiraEm = new Date(Date.now() + CACHE_TTL_SECONDS * 1000);
+      await this.cacheRepository.gravar(normalizar(plate), info, expiraEm);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("Cache de placa no banco indisponível na gravação:", error);
     }
   }
 

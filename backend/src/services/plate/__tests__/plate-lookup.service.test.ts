@@ -2,6 +2,7 @@ import "dotenv/config";
 import Redis from "ioredis";
 import { prisma } from "../../../db/prisma";
 import { closeRedis, redis, redisReady } from "../../../db/redis";
+import { PrismaPlateCacheRepository } from "../../../repositories/plate-cache.repository";
 import { PrismaPlateLookupRepository } from "../../../repositories/plate-lookup.repository";
 import { PlateLookupService } from "../plate-lookup.service";
 import {
@@ -66,6 +67,7 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     }
     if (usedPlates.length > 0) {
       await redis.del(...usedPlates.map((p) => `plate:${p}`));
+      await prisma.plateCache.deleteMany({ where: { plate: { in: usedPlates } } });
     }
     clientesMortos.forEach((c) => c.disconnect());
     await prisma.$disconnect();
@@ -81,7 +83,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       fakeService,
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     await service.resolveForUser(userId, plate);
@@ -103,7 +106,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       fakeService,
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     await service.resolveForUser(primeiro, plate);
@@ -123,7 +127,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       createCountingFakePlateService(),
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     await service.resolveForUser(userId, plate);
@@ -141,7 +146,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       fakeService,
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     for (let i = 0; i < 5; i += 1) {
@@ -165,7 +171,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       fakeService,
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     for (let i = 0; i < 4; i += 1) {
@@ -197,7 +204,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       createFailingPlateService(new PlateProviderUnavailableError("status 402")),
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     await expect(service.resolveForUser(userId, uniquePlate())).rejects.toBeInstanceOf(
@@ -215,7 +223,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       createFailingPlateService(new PlateNotFoundError("ZZZ9Z99")),
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     await expect(service.resolveForUser(userId, uniquePlate())).rejects.toBeInstanceOf(
@@ -232,7 +241,8 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
     const service = new PlateLookupService(
       fakeService,
       redis,
-      new PrismaPlateLookupRepository(prisma)
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
     );
 
     for (let i = 0; i < 5; i += 1) {
@@ -282,16 +292,129 @@ describe("PlateLookupService (integração real — Postgres + Redis, sem mocks)
       const service = new PlateLookupService(
         fakeService,
         redisMorto,
-        new PrismaPlateLookupRepository(prisma)
+        new PrismaPlateLookupRepository(prisma),
+        new PrismaPlateCacheRepository(prisma)
       );
 
       const info = await service.resolveForUser(userId, uniquePlate());
 
       expect(info).toEqual({ make: "VW", model: "Gol", year: 2018, color: "PRATA" });
       expect(fakeService.calls).toHaveLength(1);
-      // Sem cache não há como poupar: a consulta passa a custar cota.
+      // Primeira consulta da placa: não há o que reaproveitar em camada
+      // nenhuma, então ela custa cota e uma chamada ao fornecedor.
       expect(await gastas(userId)).toBe(1);
     },
     15000
   );
+  // O caso que motivou a segunda camada: o App Service derruba conexão ociosa,
+  // o Redis vira cache vazio e a mesma placa seria cobrada de novo.
+  it(
+    "com o Redis fora do ar, a segunda consulta da mesma placa vem do banco",
+    async () => {
+      const userId = await createUser();
+      createdUserIds.push(userId);
+      const plate = uniquePlate();
+      usedPlates.push(plate);
+
+      const redisMorto = new Redis(6399, "127.0.0.1", {
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 1,
+        commandTimeout: 500,
+        retryStrategy: () => null,
+      });
+      redisMorto.on("error", () => {});
+      clientesMortos.push(redisMorto);
+
+      const fakeService = createCountingFakePlateService();
+      const service = new PlateLookupService(
+        fakeService,
+        redisMorto,
+        new PrismaPlateLookupRepository(prisma),
+        new PrismaPlateCacheRepository(prisma)
+      );
+
+      await service.resolveForUser(userId, plate);
+      const segunda = await service.resolveForUser(userId, plate);
+
+      expect(segunda).toEqual({ make: "VW", model: "Gol", year: 2018, color: "PRATA" });
+      // O ponto: uma chamada paga, não duas. E a cota parou de ser debitada.
+      expect(fakeService.calls).toHaveLength(1);
+      expect(await gastas(userId)).toBe(1);
+    },
+    20000
+  );
+
+  it("o cache do banco reaquece o Redis", async () => {
+    const userId = await createUser();
+    createdUserIds.push(userId);
+    const plate = uniquePlate();
+    usedPlates.push(plate);
+    const fakeService = createCountingFakePlateService();
+    const service = new PlateLookupService(
+      fakeService,
+      redis,
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
+    );
+
+    await service.resolveForUser(userId, plate);
+    // Simula o Redis tendo perdido a chave — expiração, eviction ou flush.
+    await redis.del(`plate:${plate}`);
+
+    await service.resolveForUser(userId, plate);
+
+    expect(await redis.get(`plate:${plate}`)).not.toBeNull();
+    expect(fakeService.calls).toHaveLength(1);
+  });
+
+  it("linha vencida no banco é apagada em vez de devolvida", async () => {
+    const userId = await createUser();
+    createdUserIds.push(userId);
+    const plate = uniquePlate();
+    usedPlates.push(plate);
+    await prisma.plateCache.create({
+      data: {
+        plate,
+        make: "ANTIGO",
+        model: "VELHO",
+        year: 1990,
+        expiresAt: new Date(Date.now() - 1000),
+      },
+    });
+
+    const fakeService = createCountingFakePlateService();
+    const service = new PlateLookupService(
+      fakeService,
+      redis,
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
+    );
+
+    const info = await service.resolveForUser(userId, plate);
+
+    expect(info.make).toBe("VW");
+    expect(fakeService.calls).toHaveLength(1);
+  });
+
+  // RN02: a linha não pode permitir ligar a placa a uma pessoa.
+  it("não guarda nada além de marca, modelo, ano e cor", async () => {
+    const userId = await createUser();
+    createdUserIds.push(userId);
+    const plate = uniquePlate();
+    usedPlates.push(plate);
+    const service = new PlateLookupService(
+      createCountingFakePlateService(),
+      redis,
+      new PrismaPlateLookupRepository(prisma),
+      new PrismaPlateCacheRepository(prisma)
+    );
+
+    await service.resolveForUser(userId, plate);
+
+    const linha = await prisma.plateCache.findUniqueOrThrow({ where: { plate } });
+    expect(Object.keys(linha).sort()).toEqual(
+      ["color", "expiresAt", "make", "model", "plate", "year"].sort()
+    );
+    expect(JSON.stringify(linha)).not.toContain(userId);
+  });
 });

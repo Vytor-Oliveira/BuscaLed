@@ -10,6 +10,10 @@ import Redis from "ioredis";
  * seguir pro fornecedor.
  */
 export const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+  // O App Service derruba conexão de saída parada por volta de 4 minutos. Sem
+  // keepalive o socket morre em silêncio e a leitura do cache falha, o que
+  // manda para a API paga uma placa que já estava guardada.
+  keepAlive: 30_000,
   enableOfflineQueue: false,
   maxRetriesPerRequest: 1,
   commandTimeout: 1000,

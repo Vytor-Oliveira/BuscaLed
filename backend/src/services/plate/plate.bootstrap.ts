@@ -1,5 +1,6 @@
 import { prisma } from "../../db/prisma";
 import { redis } from "../../db/redis";
+import { PrismaPlateCacheRepository } from "../../repositories/plate-cache.repository";
 import { PrismaPlateLookupRepository } from "../../repositories/plate-lookup.repository";
 import { PlateLookupService } from "./plate-lookup.service";
 import { HttpPlateService } from "./plate.service.http";
@@ -21,5 +22,6 @@ const unconfiguredPlateService: PlateService = {
 export const plateLookupService = new PlateLookupService(
   apiplacasToken ? new HttpPlateService(apiplacasToken) : unconfiguredPlateService,
   redis,
-  new PrismaPlateLookupRepository(prisma)
+  new PrismaPlateLookupRepository(prisma),
+  new PrismaPlateCacheRepository(prisma)
 );

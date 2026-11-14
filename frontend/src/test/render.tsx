@@ -89,6 +89,17 @@ export function mockarApi(
   return chamadas;
 }
 
+/**
+ * O que o backend devolve hoje para quem não entrou: 200 com user null, porque
+ * visitante não é erro. O SEM_SESSAO abaixo continua existindo para cobrir o
+ * 401, que ainda acontece quando a sessão expira no meio do uso.
+ */
+export const VISITANTE: RespostaFalsa = {
+  ok: true,
+  status: 200,
+  corpo: { user: null },
+};
+
 export const SEM_SESSAO: RespostaFalsa = {
   ok: false,
   status: 401,

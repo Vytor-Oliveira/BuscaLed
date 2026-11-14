@@ -25,10 +25,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   // O cookie é httpOnly, então a única forma de saber se há sessão é perguntar
-  // ao backend. 401 aqui é resposta esperada (visitante), não erro.
+  // ao backend. Visitante recebe 200 com user null — o 401 continua tratado
+  // porque a sessão pode expirar entre duas chamadas.
   const carregarSessao = useCallback(async (): Promise<AuthUser | null> => {
     try {
-      const { user: perfil } = await api<{ user: AuthUser }>("/auth/me");
+      const { user: perfil } = await api<{ user: AuthUser | null }>("/auth/me");
       setUser(perfil);
       return perfil;
     } catch (error) {

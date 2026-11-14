@@ -61,6 +61,18 @@ describe("AuthProvider", () => {
     expect(chamadas).toContain("GET /auth/me");
   });
 
+  it("trata 200 com user null como visitante", async () => {
+    const erro = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockFetch(() => ({ ok: true, status: 200, corpo: { user: null } }));
+    montar();
+
+    await waitFor(() => expect(screen.getByTestId("estado")).toHaveTextContent("sem sessao"));
+    expect(erro).not.toHaveBeenCalled();
+    erro.mockRestore();
+  });
+
+  // O 401 deixou de ser a resposta para visitante, mas continua acontecendo
+  // quando a sessao expira entre duas chamadas.
   it("trata 401 como visitante, não como erro", async () => {
     const erro = vi.spyOn(console, "error").mockImplementation(() => {});
     mockFetch(() => ({ ok: false, status: 401, corpo: { error: "Não autenticado." } }));

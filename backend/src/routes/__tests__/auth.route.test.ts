@@ -61,7 +61,7 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
     const confirmRes = await request(app).get(`/auth/confirm?token=${token}`);
     // Link de e-mail: tem que levar a pessoa pra tela de login, nao devolver JSON.
     expect(confirmRes.status).toBe(302);
-    expect(confirmRes.headers.location).toMatch(/\/login\?confirmacao=ok$/);
+    expect(confirmRes.headers.location).toMatch(/\/entrar\?confirmacao=ok$/);
 
     const loginRes = await request(app)
       .post("/auth/login")
@@ -79,11 +79,11 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
   it("manda token inválido e token ausente para a tela de login", async () => {
     const invalido = await request(app).get("/auth/confirm?token=nao-existe");
     expect(invalido.status).toBe(302);
-    expect(invalido.headers.location).toMatch(/\/login\?confirmacao=invalida$/);
+    expect(invalido.headers.location).toMatch(/\/entrar\?confirmacao=invalida$/);
 
     const ausente = await request(app).get("/auth/confirm");
     expect(ausente.status).toBe(302);
-    expect(ausente.headers.location).toMatch(/\/login\?confirmacao=invalida$/);
+    expect(ausente.headers.location).toMatch(/\/entrar\?confirmacao=invalida$/);
   });
 
   it("trata o e-mail sem diferenciar maiúsculas/minúsculas", async () => {

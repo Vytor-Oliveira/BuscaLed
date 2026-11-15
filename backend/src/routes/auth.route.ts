@@ -136,9 +136,14 @@ authRouter.post("/resend-confirmation", registrationRateLimiter, async (req, res
 // Este link sai num e-mail e e aberto no navegador, nao consumido por codigo:
 // responder JSON deixava a pessoa olhando um blob. Quem mostra o resultado e a
 // tela de login, que e o proximo passo dela de qualquer forma.
+//
+// O destino e /entrar, a rota real. Apontar para /login mandava a pessoa a um
+// apelido que o frontend resolve com <Navigate to="/entrar">, e esse redirect
+// descarta a query — ou seja, o resultado da confirmacao se perdia no caminho e
+// a tela aparecia muda.
 function telaDeLogin(resultado: "ok" | "invalida"): string {
   const base = process.env.FRONTEND_URL ?? "http://localhost:5173";
-  return `${base}/login?confirmacao=${resultado}`;
+  return `${base}/entrar?confirmacao=${resultado}`;
 }
 
 authRouter.get("/confirm", async (req, res, next) => {

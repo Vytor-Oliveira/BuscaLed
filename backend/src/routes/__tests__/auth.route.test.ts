@@ -195,6 +195,65 @@ describe("Auth routes (integração real — Postgres, sem mocks)", () => {
     expect(res.body.user.emailConfirmationToken).toBeUndefined();
   });
 
+  describe("reenvio da confirmação de e-mail", () => {
+    const MENSAGEM = "Se houver cadastro pendente para este e-mail, enviamos um novo link.";
+
+    it("emite token novo para quem ainda não confirmou e invalida o anterior", async () => {
+      const email = uniqueEmail();
+      await request(app)
+        .post("/auth/register")
+        .send({ name: "Reenvio Teste", email, password: "senha-forte-123" });
+      createdEmails.push(email);
+      const primeiro = await getConfirmationToken(email);
+
+      const res = await request(app).post("/auth/resend-confirmation").send({ email });
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe(MENSAGEM);
+
+      const segundo = await getConfirmationToken(email);
+      expect(segundo).not.toBe(primeiro);
+
+      // O token velho tem que morrer: dois links validos ao mesmo tempo
+      // dobrariam a janela de quem interceptasse o primeiro e-mail.
+      const comAntigo = await request(app).get(`/auth/confirm?token=${primeiro}`);
+      expect(comAntigo.headers.location).toContain("confirmacao=invalida");
+
+      const comNovo = await request(app).get(`/auth/confirm?token=${segundo}`);
+      expect(comNovo.headers.location).toContain("confirmacao=ok");
+    });
+
+    // Resposta diferente por caso entregaria a quem perguntasse a lista de
+    // quem tem conta aqui. Mesma politica do esqueci-minha-senha.
+    it("responde igual para e-mail inexistente e para conta já confirmada", async () => {
+      const inexistente = await request(app)
+        .post("/auth/resend-confirmation")
+        .send({ email: uniqueEmail() });
+      expect(inexistente.status).toBe(200);
+      expect(inexistente.body.message).toBe(MENSAGEM);
+
+      const email = uniqueEmail();
+      await request(app)
+        .post("/auth/register")
+        .send({ name: "Ja Confirmado", email, password: "senha-forte-123" });
+      createdEmails.push(email);
+      await request(app).get(`/auth/confirm?token=${await getConfirmationToken(email)}`);
+
+      const confirmado = await request(app).post("/auth/resend-confirmation").send({ email });
+      expect(confirmado.status).toBe(200);
+      expect(confirmado.body.message).toBe(MENSAGEM);
+
+      // Conta ja confirmada nao pode ganhar token novo.
+      const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+      expect(user.emailConfirmationToken).toBeNull();
+    });
+
+    it("recusa e-mail malformado", async () => {
+      const res = await request(app).post("/auth/resend-confirmation").send({ email: "nao-e-email" });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("recuperação de senha (RF02)", () => {
     it("gera token e deixa entrar com a senha nova", async () => {
       const email = uniqueEmail();

@@ -49,6 +49,13 @@ export function registrar(
   });
 }
 
+export function reenviarConfirmacao(email: string): Promise<{ message: string }> {
+  return api<{ message: string }>("/auth/resend-confirmation", {
+    method: "POST",
+    body: { email },
+  });
+}
+
 export function pedirRedefinicao(email: string): Promise<{ message: string }> {
   return api<{ message: string }>("/auth/forgot-password", { method: "POST", body: { email } });
 }

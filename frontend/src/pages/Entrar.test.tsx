@@ -244,4 +244,63 @@ describe("Entrar", () => {
 
     await waitFor(() => expect(chamadas).toContain("POST /auth/login"));
   });
+  // O token de confirmacao expira em 24h. Sem o reenvio, quem perdia a janela
+  // so se destravava pelo esqueci-minha-senha, que ninguem adivinha.
+  describe("e-mail ainda não confirmado", () => {
+    const naoConfirmado = (caminho: string) => {
+      if (caminho === "/auth/login") {
+        return { ok: false, status: 403, corpo: { error: "Confirme seu e-mail antes de entrar." } };
+      }
+      if (caminho === "/auth/resend-confirmation") {
+        return { ok: true, status: 200, corpo: { message: "Se houver cadastro pendente, enviamos um novo link." } };
+      }
+      return SEM_SESSAO;
+    };
+
+    it("oferece reenviar a confirmação quando o login responde 403", async () => {
+      montar(naoConfirmado);
+      await screen.findByLabelText("E-mail");
+      preencher("pendente@example.com", "senha-forte-123");
+      fireEvent.click(screen.getByRole("button", { name: "Entrar na minha conta" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Confirme seu e-mail");
+      expect(
+        screen.getByRole("button", { name: "Reenviar e-mail de confirmação" })
+      ).toBeInTheDocument();
+    });
+
+    it("reenvia para o e-mail digitado e troca o erro pelo aviso", async () => {
+      const chamadas = montar(naoConfirmado);
+      await screen.findByLabelText("E-mail");
+      preencher("pendente@example.com", "senha-forte-123");
+      fireEvent.click(screen.getByRole("button", { name: "Entrar na minha conta" }));
+
+      fireEvent.click(await screen.findByRole("button", { name: "Reenviar e-mail de confirmação" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent("enviamos um novo link")
+      );
+      expect(chamadas).toContain("POST /auth/resend-confirmation");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Reenviar e-mail de confirmação" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("não oferece reenvio quando a falha é de senha errada", async () => {
+      montar((caminho) =>
+        caminho === "/auth/login"
+          ? { ok: false, status: 401, corpo: { error: "E-mail ou senha incorretos." } }
+          : SEM_SESSAO
+      );
+      await screen.findByLabelText("E-mail");
+      preencher("alguem@example.com", "senha-errada-123");
+      fireEvent.click(screen.getByRole("button", { name: "Entrar na minha conta" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("senha incorretos");
+      expect(
+        screen.queryByRole("button", { name: "Reenviar e-mail de confirmação" })
+      ).not.toBeInTheDocument();
+    });
+  });
 });

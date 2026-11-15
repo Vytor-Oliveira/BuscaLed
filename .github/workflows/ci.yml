@@ -108,6 +108,28 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage
 
+  # Job separado, sem `needs`: lint e testes falham por motivos diferentes e
+  # rodando em paralelo os dois sinais aparecem juntos, em vez de o primeiro
+  # a falhar esconder o outro.
+  lint:
+    name: Lint — Backend e Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Lint backend
+        working-directory: ./backend
+        run: npm ci && npm run lint
+
+      - name: Lint frontend
+        working-directory: ./frontend
+        run: npm ci && npm run lint
+
   sonarcloud:
     name: SonarCloud — Quality Gate
     runs-on: ubuntu-latest

@@ -53,31 +53,41 @@ export function BotaoGoogle({
   const alvo = useRef<HTMLDivElement>(null);
   const [indisponivel, setIndisponivel] = useState(false);
 
+  // O efeito abaixo roda uma vez só. Se dependesse destes callbacks, cada
+  // tecla digitada no formulário recriaria o `onEntrou` do pai e mandaria o
+  // Google redesenhar o botão — que sempre começa genérico antes de virar
+  // "Continuar como fulano". Era esse o piscar.
+  const callbacks = useRef({ onEntrou, onErro });
+  useEffect(() => {
+    callbacks.current = { onEntrou, onErro };
+  });
+
   useEffect(() => {
     if (!CLIENT_ID) {
       return;
     }
     let ativo = true;
+    const container = alvo.current;
 
     carregarScript()
       .then(() => {
         const google = (window as unknown as { google?: GoogleGlobal }).google;
-        if (!ativo || !google || !alvo.current) {
+        if (!ativo || !google || !container) {
           return;
         }
         google.accounts.id.initialize({
           client_id: CLIENT_ID,
           callback: (resposta) => {
             if (!resposta.credential) {
-              onErro("O Google não devolveu as credenciais. Tente de novo.");
+              callbacks.current.onErro("O Google não devolveu as credenciais. Tente de novo.");
               return;
             }
             entrarComGoogle(resposta.credential)
-              .then(onEntrou)
-              .catch(() => onErro("Não conseguimos entrar com o Google."));
+              .then(() => callbacks.current.onEntrou())
+              .catch(() => callbacks.current.onErro("Não conseguimos entrar com o Google."));
           },
         });
-        google.accounts.id.renderButton(alvo.current, {
+        google.accounts.id.renderButton(container, {
           type: "standard",
           theme: "outline",
           size: "large",
@@ -90,8 +100,13 @@ export function BotaoGoogle({
 
     return () => {
       ativo = false;
+      // StrictMode monta duas vezes em dev: sem limpar, o segundo
+      // renderButton empilha um botão em cima do outro.
+      if (container) {
+        container.innerHTML = "";
+      }
     };
-  }, [onEntrou, onErro]);
+  }, []);
 
   if (!CLIENT_ID || indisponivel) {
     return null;
@@ -106,7 +121,9 @@ export function BotaoGoogle({
         </span>
         <span aria-hidden className="h-px flex-1 bg-line" />
       </div>
-      <div ref={alvo} className="flex justify-center [color-scheme:light]" />
+      {/* Altura reservada: o botão chega pelo script do Google, e sem isso o
+          conteúdo abaixo salta quando ele aparece. */}
+      <div ref={alvo} className="flex min-h-[44px] justify-center [color-scheme:light]" />
     </div>
   );
 }

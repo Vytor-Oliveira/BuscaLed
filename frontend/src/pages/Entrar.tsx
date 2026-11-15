@@ -2,7 +2,7 @@ import { useCallback, useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Eye, EyeOff, Lightbulb, ShieldCheck, Sparkles } from "lucide-react";
 import { ApiError } from "../api/client";
-import { registrar } from "../api/auth";
+import { registrar, reenviarConfirmacao } from "../api/auth";
 import { useAuth, type UserRole } from "../auth/AuthContext";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Field";
@@ -44,6 +44,10 @@ export default function Entrar() {
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // 403 no login so sai de e-mail nao confirmado: o token de confirmacao
+  // expira em 24h e sem isto a pessoa ficava sem saida.
+  const [confirmacaoPendente, setConfirmacaoPendente] = useState(false);
+  const [reenviando, setReenviando] = useState(false);
 
   const confirmacao = MENSAGEM_CONFIRMACAO[params.get("confirmacao") ?? ""];
   // Guardado pelo RequireRole: volta para onde o visitante estava.
@@ -89,6 +93,7 @@ export default function Entrar() {
         }
       }
     } catch (falha) {
+      setConfirmacaoPendente(falha instanceof ApiError && falha.status === 403);
       setErro(
         falha instanceof ApiError
           ? falha.message
@@ -96,6 +101,20 @@ export default function Entrar() {
       );
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function pedirNovaConfirmacao() {
+    setReenviando(true);
+    try {
+      const { message } = await reenviarConfirmacao(email.trim());
+      setConfirmacaoPendente(false);
+      setErro("");
+      setAviso(message);
+    } catch {
+      setErro("Não conseguimos reenviar agora. Tente de novo em instantes.");
+    } finally {
+      setReenviando(false);
     }
   }
 
@@ -187,6 +206,7 @@ export default function Entrar() {
               onValueChange={(v) => {
                 setAba(v);
                 setErro("");
+                setConfirmacaoPendente(false);
               }}
             >
               <TabsList rotulo="Entrar ou criar conta">
@@ -257,6 +277,18 @@ export default function Entrar() {
                   >
                     {erro}
                   </p>
+                )}
+
+                {confirmacaoPendente && (
+                  <Button
+                    type="button"
+                    variante="secundario"
+                    larguraCheia
+                    carregando={reenviando}
+                    onClick={pedirNovaConfirmacao}
+                  >
+                    Reenviar e-mail de confirmação
+                  </Button>
                 )}
 
                 <Button type="submit" tamanho="lg" larguraCheia carregando={enviando}>

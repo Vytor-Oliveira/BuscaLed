@@ -13,6 +13,7 @@ import { catalogRouter } from "./routes/catalog.route";
 import { analyticsRouter } from "./routes/analytics.route";
 import { ticketRouter } from "./routes/ticket.route";
 import { DIRETORIO_UPLOADS, PREFIXO_PUBLICO } from "./routes/upload";
+import { relatarErro } from "./observability/relatar-erro";
 
 // Tudo que é API. Serve para duas coisas: devolver 404 em JSON no que não
 // existe, e impedir que o fallback da SPA engula uma rota de API digitada
@@ -105,8 +106,11 @@ export function createApp(): Application {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    // Os dois: o New Relic agrega e alerta, o log do App Service serve para
+    // quem esta olhando o fluxo ao vivo.
+    relatarErro(err);
     // eslint-disable-next-line no-console
-    console.error(err); // TODO: substituir por New Relic (RNF08) quando configurado
+    console.error(err);
     res.status(500).json({ error: "Erro interno do servidor." });
   });
 

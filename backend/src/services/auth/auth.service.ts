@@ -70,6 +70,31 @@ export class AuthService {
     await this.emailSender.sendConfirmationEmail(email, confirmationToken);
   }
 
+  /**
+   * O token de confirmação vale 24h e não havia como pedir outro: quem se
+   * cadastrava e só abria o e-mail no dia seguinte ficava sem saída.
+   *
+   * Responde igual para e-mail inexistente, já confirmado ou pendente —
+   * diferenciar entregaria a quem perguntasse a lista de quem tem conta aqui.
+   * Mesma política do esqueci-minha-senha.
+   */
+  async resendConfirmation(email: string): Promise<void> {
+    const normalizado = normalizeEmail(email);
+    const user = await this.userRepository.findByEmail(normalizado);
+
+    if (!user || user.emailVerifiedAt) {
+      return;
+    }
+
+    const confirmationToken = crypto.randomBytes(32).toString("hex");
+    await this.userRepository.update(user.id, {
+      emailConfirmationToken: confirmationToken,
+      emailConfirmationExpiresAt: new Date(Date.now() + CONFIRMATION_TOKEN_EXPIRES_MS),
+    });
+
+    await this.emailSender.sendConfirmationEmail(normalizado, confirmationToken);
+  }
+
   async confirmEmail(token: string): Promise<void> {
     const user = await this.userRepository.findByConfirmationToken(token);
 

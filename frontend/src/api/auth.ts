@@ -1,7 +1,7 @@
 import { api } from "./client";
 import type { AuthUser } from "../auth/AuthContext";
 
-export { registrar, pedirRedefinicao, redefinirSenha } from "./client";
+export { registrar, reenviarConfirmacao, pedirRedefinicao, redefinirSenha } from "./client";
 
 export function entrar(email: string, password: string): Promise<void> {
   return api("/auth/login", { method: "POST", body: { email, password } });

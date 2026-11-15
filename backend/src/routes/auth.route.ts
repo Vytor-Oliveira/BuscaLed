@@ -110,6 +110,29 @@ authRouter.post("/register", registrationRateLimiter, async (req, res, next) => 
   }
 });
 
+const reenvioSchema = z.object({ email: z.string().email("E-mail inválido.") });
+
+// O token de confirmacao expira em 24h. Sem esta rota, quem perdia a janela so
+// se destravava pelo esqueci-minha-senha, que tambem confirma o e-mail — saida
+// que ninguem adivinha.
+authRouter.post("/resend-confirmation", registrationRateLimiter, async (req, res, next) => {
+  const parsed = reenvioSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "E-mail inválido." });
+    return;
+  }
+
+  try {
+    await authService.resendConfirmation(parsed.data.email);
+    // Resposta unica de proposito: ver o servico.
+    res.json({
+      message: "Se houver cadastro pendente para este e-mail, enviamos um novo link.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Este link sai num e-mail e e aberto no navegador, nao consumido por codigo:
 // responder JSON deixava a pessoa olhando um blob. Quem mostra o resultado e a
 // tela de login, que e o proximo passo dela de qualquer forma.

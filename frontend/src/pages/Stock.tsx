@@ -28,7 +28,7 @@ const SELO: Record<Exclude<Situacao, "todos">, { tom: TomBadge; rotulo: string }
   esgotado: { tom: "danger", rotulo: "Esgotado" },
 };
 
-function BarraDeEstoque({ produto }: { produto: LedModel }) {
+function BarraDeEstoque({ produto }: Readonly<{ produto: LedModel }>) {
   const situacao = situacaoDe(produto);
   // A escala é o dobro do mínimo: é a referência que diz se está perto da linha.
   const escala = Math.max(produto.stockMin * 2, produto.stockQty, 1);

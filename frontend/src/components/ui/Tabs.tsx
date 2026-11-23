@@ -9,11 +9,11 @@ export function TabsList({
   children,
   className,
   rotulo,
-}: {
+}: Readonly<{
   children: ReactNode;
   className?: string;
   rotulo: string;
-}) {
+}>) {
   return (
     <RadixTabs.List
       aria-label={rotulo}
@@ -31,11 +31,11 @@ export function TabsTrigger({
   value,
   children,
   contador,
-}: {
+}: Readonly<{
   value: string;
   children: ReactNode;
   contador?: number;
-}) {
+}>) {
   return (
     <RadixTabs.Trigger
       value={value}

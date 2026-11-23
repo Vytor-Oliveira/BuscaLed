@@ -26,7 +26,7 @@ const cliente = new QueryClient({
   },
 });
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <QueryClientProvider client={cliente}>
       <ThemeProvider>

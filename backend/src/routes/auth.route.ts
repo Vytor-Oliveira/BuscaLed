@@ -7,8 +7,8 @@ import { optionalAuth } from "../middleware/auth.middleware";
 import { criarRateLimiter } from "../middleware/rate-limit";
 import { PrismaUserRepository } from "../repositories/user.repository";
 import { AuthService } from "../services/auth/auth.service";
-import { AuthTokens } from "../services/auth/types";
 import {
+  AuthTokens,
   EmailAlreadyRegisteredError,
   EmailNotVerifiedError,
   GoogleTokenInvalidError,

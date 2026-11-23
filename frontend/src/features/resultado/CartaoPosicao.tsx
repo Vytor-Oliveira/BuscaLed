@@ -14,7 +14,7 @@ import { Button } from "../../components/ui/Button";
 import { Tooltip } from "../../components/ui/Tooltip";
 import { useCarrinho } from "../reserva/CarrinhoContext";
 
-function FotoProduto({ url, nome }: { url: string | null; nome: string }) {
+function FotoProduto({ url, nome }: Readonly<{ url: string | null; nome: string }>) {
   if (!url) {
     return (
       <span
@@ -43,14 +43,14 @@ function LinhaModelo({
   escolhido,
   destacarEncaixe,
   onEscolher,
-}: {
+}: Readonly<{
   modelo: CompatibleLed;
   posicao: PositionCompatibility["position"];
   escolhido: boolean;
   /** Quando a posição tem mais de um encaixe, é ele que distingue os produtos. */
   destacarEncaixe: boolean;
   onEscolher: () => void;
-}) {
+}>) {
   return (
     <li>
       <button
@@ -127,7 +127,7 @@ function LinhaModelo({
   );
 }
 
-export function CartaoPosicao({ dados }: { dados: PositionCompatibility }) {
+export function CartaoPosicao({ dados }: Readonly<{ dados: PositionCompatibility }>) {
   const { escolhidoEm, escolher, remover, ajustarQuantidade } = useCarrinho();
   const { icone: Icone, explicacao } = META_POSICAO[dados.position];
   const selecao = escolhidoEm(dados.position);

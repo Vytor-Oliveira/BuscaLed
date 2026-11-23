@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { AlertTriangle, Search } from "lucide-react";
 import { addVehicleByDetails, addVehicleByPlate } from "../../api/vehicles";
@@ -10,7 +10,6 @@ import { Input, SelectNativo } from "../../components/ui/Field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/Tabs";
 import { useToast } from "../../components/ui/Toast";
 import { Combobox } from "../../components/ui/Combobox";
-import { useQuery } from "@tanstack/react-query";
 import { listarMarcas, listarModelos } from "../../api/compatibility";
 import { mascaraPlaca, placaValida } from "../../lib/formato";
 import { anosDoModelo, nomesDeModelo } from "../../lib/veiculo";
@@ -19,10 +18,10 @@ import { cn } from "../../lib/cn";
 export function DialogoNovoVeiculo({
   aberto,
   onFechar,
-}: {
+}: Readonly<{
   aberto: boolean;
   onFechar: () => void;
-}) {
+}>) {
   const [aba, setAba] = useState("placa");
   const [placa, setPlaca] = useState("");
   const [erroPlaca, setErroPlaca] = useState("");

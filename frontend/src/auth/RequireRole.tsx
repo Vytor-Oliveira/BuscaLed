@@ -17,7 +17,7 @@ function quemPode(roles: UserRole[]): string {
   if (nomes.length === 1) {
     return nomes[0];
   }
-  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}`;
 }
 
 /**
@@ -28,10 +28,10 @@ function quemPode(roles: UserRole[]): string {
 export function RequireRole({
   roles,
   children,
-}: {
+}: Readonly<{
   roles: UserRole[];
   children: React.ReactNode;
-}) {
+}>) {
   const { user, loading } = useAuth();
   const location = useLocation();
 

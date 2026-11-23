@@ -24,7 +24,7 @@ interface Props {
   variante?: "heroi" | "compacto";
 }
 
-export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Props) {
+export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Readonly<Props>) {
   const [aba, setAba] = useState("placa");
 
   const [placa, setPlaca] = useState("");

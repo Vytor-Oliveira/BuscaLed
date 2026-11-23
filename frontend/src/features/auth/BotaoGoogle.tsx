@@ -46,10 +46,10 @@ function carregarScript(): Promise<void> {
 export function BotaoGoogle({
   onEntrou,
   onErro,
-}: {
+}: Readonly<{
   onEntrou: () => void;
   onErro: (mensagem: string) => void;
-}) {
+}>) {
   const alvo = useRef<HTMLDivElement>(null);
   const [indisponivel, setIndisponivel] = useState(false);
 

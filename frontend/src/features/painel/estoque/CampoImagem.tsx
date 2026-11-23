@@ -14,7 +14,7 @@ interface Props {
 const TAMANHO_MAXIMO_BYTES = 3 * 1024 * 1024;
 const TIPOS = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
-export function CampoImagem({ valor, onMudar }: Props) {
+export function CampoImagem({ valor, onMudar }: Readonly<Props>) {
   const entrada = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");

@@ -27,7 +27,7 @@ export function Dialog({
   children,
   rodape,
   largo = false,
-}: Props) {
+}: Readonly<Props>) {
   return (
     <RadixDialog.Root open={aberto} onOpenChange={(v) => !v && onFechar()}>
       <RadixDialog.Portal>
@@ -97,7 +97,7 @@ export function Confirmacao({
   rotuloConfirmar,
   destrutivo = false,
   carregando = false,
-}: ConfirmacaoProps) {
+}: Readonly<ConfirmacaoProps>) {
   return (
     <Dialog
       aberto={aberto}

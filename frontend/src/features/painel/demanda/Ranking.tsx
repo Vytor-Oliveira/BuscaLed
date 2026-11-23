@@ -31,7 +31,7 @@ interface Props {
  * contexto de coluna, e a barra é só a leitura visual do mesmo número. Série
  * única, um matiz, sem legenda — o título já diz o que está medido.
  */
-export function Ranking({ titulo, descricao, linhas, sufixo, vazio, acao }: Props) {
+export function Ranking({ titulo, descricao, linhas, sufixo, vazio, acao }: Readonly<Props>) {
   const maximo = Math.max(1, ...linhas.map((l) => l.valor));
 
   return (

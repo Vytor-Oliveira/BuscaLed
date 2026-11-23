@@ -13,10 +13,10 @@ const ATALHOS = [10, 50, 100];
 export function DialogoReposicao({
   produto,
   onFechar,
-}: {
+}: Readonly<{
   produto: LedModel | null;
   onFechar: () => void;
-}) {
+}>) {
   const [quantidade, setQuantidade] = useState(10);
   const clienteDeConsulta = useQueryClient();
   const toast = useToast();

@@ -37,7 +37,7 @@ function prefereEscuro(): boolean {
   );
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [tema, setTema] = useState<Tema>(lerSalvo);
   const [sistemaEscuro, setSistemaEscuro] = useState(prefereEscuro);
 

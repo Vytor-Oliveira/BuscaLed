@@ -8,10 +8,10 @@ import { cn } from "../../lib/cn";
 export function Marca({
   className,
   tamanho = "md",
-}: {
+}: Readonly<{
   className?: string;
   tamanho?: "sm" | "md" | "lg";
-}) {
+}>) {
   const caixa = tamanho === "lg" ? "size-10" : tamanho === "sm" ? "size-7" : "size-8";
   const icone = tamanho === "lg" ? "size-5.5" : tamanho === "sm" ? "size-4" : "size-4.5";
   const texto = tamanho === "lg" ? "text-xl" : tamanho === "sm" ? "text-[15px]" : "text-[17px]";

@@ -23,7 +23,7 @@ const ETAPAS: { status: TicketStatus; rotulo: string }[] = [
 ];
 
 /** Linha do tempo. Cancelado sai da trilha: não é uma etapa, é um desvio. */
-function LinhaDoTempo({ status }: { status: TicketStatus }) {
+function LinhaDoTempo({ status }: Readonly<{ status: TicketStatus }>) {
   if (status === "CANCELADO") {
     return (
       <p className="text-[13px] text-muted">

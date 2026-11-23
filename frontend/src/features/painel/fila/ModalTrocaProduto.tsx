@@ -21,7 +21,7 @@ interface Props {
   onFechar: () => void;
 }
 
-export function ModalTrocaProduto({ ticket, onFechar }: Props) {
+export function ModalTrocaProduto({ ticket, onFechar }: Readonly<Props>) {
   const [itemId, setItemId] = useState<string | null>(null);
   const clienteDeConsulta = useQueryClient();
   const toast = useToast();

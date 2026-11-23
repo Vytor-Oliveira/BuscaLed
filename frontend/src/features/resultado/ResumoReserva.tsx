@@ -9,7 +9,7 @@ import { useCarrinho, type VeiculoDoCarrinho } from "../reserva/CarrinhoContext"
  * Resumo fixo da seleção. No desktop é coluna grudada; no celular é barra
  * inferior, que é onde o polegar alcança.
  */
-export function ResumoReserva({ veiculo }: { veiculo: VeiculoDoCarrinho | null }) {
+export function ResumoReserva({ veiculo }: Readonly<{ veiculo: VeiculoDoCarrinho | null }>) {
   const { itens, total, totalCents, temItemSemPreco, remover } = useCarrinho();
   const vazio = itens.length === 0;
 

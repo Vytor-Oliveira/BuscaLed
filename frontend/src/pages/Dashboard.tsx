@@ -17,12 +17,12 @@ function Kpi({
   valor,
   apoio,
   carregando,
-}: {
+}: Readonly<{
   rotulo: string;
   valor: string;
   apoio?: string;
   carregando: boolean;
-}) {
+}>) {
   return (
     <div className="rounded-[var(--radius-md)] border border-line bg-surface p-4">
       <p className="text-[12px] font-semibold uppercase tracking-wider text-subtle">

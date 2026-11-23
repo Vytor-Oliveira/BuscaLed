@@ -11,7 +11,7 @@ interface Props {
   lado?: "top" | "right" | "bottom" | "left";
 }
 
-export function Tooltip({ texto, children, lado = "top" }: Props) {
+export function Tooltip({ texto, children, lado = "top" }: Readonly<Props>) {
   return (
     <RadixTooltip.Root>
       <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
@@ -38,7 +38,7 @@ export function Tooltip({ texto, children, lado = "top" }: Props) {
  * O "?" que explica jargao. E um botao de verdade: tooltip so em hover deixa
  * o conteudo inacessivel por teclado e no toque.
  */
-export function AjudaInline({ texto, rotulo }: { texto: ReactNode; rotulo: string }) {
+export function AjudaInline({ texto, rotulo }: Readonly<{ texto: ReactNode; rotulo: string }>) {
   return (
     <Tooltip texto={texto}>
       <button

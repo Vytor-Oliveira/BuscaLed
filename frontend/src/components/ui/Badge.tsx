@@ -24,7 +24,7 @@ interface Props {
  * Selo de estado. Sempre com rotulo em texto: cor nunca e o unico portador da
  * informacao (WCAG 1.4.1).
  */
-export function Badge({ tom = "neutral", Icone, children, className }: Props) {
+export function Badge({ tom = "neutral", Icone, children, className }: Readonly<Props>) {
   return (
     <span
       className={cn(

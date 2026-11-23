@@ -13,7 +13,7 @@ const OPCOES: { valor: Tema; rotulo: string; Icone: typeof Sun }[] = [
  * uma escolha de verdade, e um alternador de dois estados não consegue voltar
  * para ela.
  */
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({ className }: Readonly<{ className?: string }>) {
   const { tema, definirTema } = useTema();
 
   return (

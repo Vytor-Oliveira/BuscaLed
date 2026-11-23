@@ -18,7 +18,7 @@ import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { cn } from "../lib/cn";
 import { menuDoPapel, ROTULO_PAPEL, tituloDaRota, type ItemDeMenu } from "../features/painel/navegacao";
 
-function Marca({ compacto }: { compacto: boolean }) {
+function Marca({ compacto }: Readonly<{ compacto: boolean }>) {
   return (
     <span className="flex items-center gap-2.5 overflow-hidden">
       <span
@@ -41,12 +41,12 @@ function Navegacao({
   pendentes,
   compacto,
   onNavegar,
-}: {
+}: Readonly<{
   itens: ItemDeMenu[];
   pendentes: number;
   compacto: boolean;
   onNavegar?: () => void;
-}) {
+}>) {
   return (
     <nav aria-label="Seções do painel" className="flex flex-col gap-1">
       {itens.map(({ para, rotulo, Icone, contaPendentes }) => (

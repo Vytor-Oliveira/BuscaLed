@@ -4,7 +4,7 @@ import { cn } from "../../lib/cn";
  * Esqueleto de carregamento. Decorativo: fica fora da arvore de acessibilidade,
  * e quem anuncia o carregamento e o aria-busy da regiao.
  */
-export function Skeleton({ className }: { className?: string }) {
+export function Skeleton({ className }: Readonly<{ className?: string }>) {
   return (
     <div
       aria-hidden
@@ -16,7 +16,7 @@ export function Skeleton({ className }: { className?: string }) {
   );
 }
 
-export function SkeletonTexto({ linhas = 3 }: { linhas?: number }) {
+export function SkeletonTexto({ linhas = 3 }: Readonly<{ linhas?: number }>) {
   return (
     <div className="flex flex-col gap-2">
       {Array.from({ length: linhas }, (_, i) => (

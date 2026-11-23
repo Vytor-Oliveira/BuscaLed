@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcrypt";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { OAuth2Client } from "google-auth-library";
 import { UserRole, signAccessToken, signRefreshToken, verifyRefreshToken } from "./jwt";
 import {

@@ -26,7 +26,7 @@ const consultaRateLimiter = criarRateLimiter({
 
 // Mercosul (ABC1D23) e o padrão antigo (ABC1234). Sem isso, qualquer string
 // ia direto para a API paga.
-const FORMATO_DE_PLACA = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
+const FORMATO_DE_PLACA = /^[A-Z]{3}\d[A-Z0-9]\d{2}$/;
 
 const consultaSchema = z.object({
   // Hífen e espaço são como a pessoa digita, não parte da placa.

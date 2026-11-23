@@ -33,11 +33,11 @@ function Dado({
   Icone,
   rotulo,
   children,
-}: {
+}: Readonly<{
   Icone: typeof Mail;
   rotulo: string;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <div className="flex gap-3">
       <Icone aria-hidden className="mt-0.5 size-4 shrink-0 text-subtle" />
@@ -51,7 +51,7 @@ function Dado({
   );
 }
 
-export function DetalheDoPedido({ ticket, onFechar, onTrocar }: Props) {
+export function DetalheDoPedido({ ticket, onFechar, onTrocar }: Readonly<Props>) {
   const acoes = useAcoesDoPedido();
   const [confirmandoCancelamento, setConfirmando] = useState(false);
 

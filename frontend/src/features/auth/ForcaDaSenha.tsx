@@ -33,7 +33,7 @@ function pontuar(senha: string): number {
   return Math.min(pontos, NIVEIS.length - 1);
 }
 
-export function ForcaDaSenha({ senha }: { senha: string }) {
+export function ForcaDaSenha({ senha }: Readonly<{ senha: string }>) {
   const nivel = useMemo(() => pontuar(senha), [senha]);
 
   if (nivel < 0) {

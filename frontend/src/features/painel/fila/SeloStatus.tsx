@@ -10,7 +10,7 @@ const APARENCIA: Record<TicketStatus, { tom: TomBadge; Icone: typeof Clock }> = 
   CANCELADO: { tom: "neutral", Icone: XCircle },
 };
 
-export function SeloStatus({ status }: { status: TicketStatus }) {
+export function SeloStatus({ status }: Readonly<{ status: TicketStatus }>) {
   const { tom, Icone } = APARENCIA[status];
   return (
     <Badge tom={tom} Icone={Icone}>

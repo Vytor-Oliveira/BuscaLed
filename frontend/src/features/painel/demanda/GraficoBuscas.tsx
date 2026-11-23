@@ -25,11 +25,11 @@ function CaixaDeDica({
   active,
   payload,
   label,
-}: {
+}: Readonly<{
   active?: boolean;
   payload?: Array<{ value?: number }>;
   label?: string;
-}) {
+}>) {
   if (!active || !payload?.length) {
     return null;
   }
@@ -51,7 +51,7 @@ function CaixaDeDica({
  * malha recessiva e marca fina — a leitura é a tendência, não o valor exato de
  * cada ponto (esse vem no hover).
  */
-export function GraficoBuscas({ dados }: Props) {
+export function GraficoBuscas({ dados }: Readonly<Props>) {
   // O backend devolve a serie inteira, com os dias vazios em zero e agrupada
   // no fuso de Brasilia: preencher de novo aqui usaria o dia do navegador.
   const serie = dados;

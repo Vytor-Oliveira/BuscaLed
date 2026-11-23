@@ -51,7 +51,7 @@ function inteiro(texto: string, padrao = 0): number {
   return Number.isSafeInteger(n) ? n : padrao;
 }
 
-export function DialogoProduto({ aberto, produto, onFechar }: Props) {
+export function DialogoProduto({ aberto, produto, onFechar }: Readonly<Props>) {
   const editando = Boolean(produto);
   const [campos, setCampos] = useState<Campos>(VAZIO);
   const [imagem, setImagem] = useState<string | null>(null);

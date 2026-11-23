@@ -33,7 +33,7 @@ const ESTILO: Record<TomToast, { classe: string; Icone: typeof Info; cor: string
   info: { classe: "border-line-strong", Icone: Info, cor: "text-brand-600" },
 };
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
 
   const avisar = useCallback((aviso: Omit<Aviso, "id">) => {

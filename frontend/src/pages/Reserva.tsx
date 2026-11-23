@@ -25,7 +25,7 @@ import { numeroTicket } from "../lib/ticket";
 import { ROTULO_POSICAO, rotuloDoKit } from "../lib/posicoes";
 import { cn } from "../lib/cn";
 
-function Sucesso({ ticket }: { ticket: Ticket }) {
+function Sucesso({ ticket }: Readonly<{ ticket: Ticket }>) {
   return (
     <main className="container-app py-14">
       <div className="mx-auto max-w-lg text-center">

@@ -71,7 +71,7 @@ function ler(): Carrinho {
   }
 }
 
-export function CarrinhoProvider({ children }: { children: ReactNode }) {
+export function CarrinhoProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [carrinho, setCarrinho] = useState<Carrinho>(ler);
 
   useEffect(() => {

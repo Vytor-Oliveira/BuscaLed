@@ -40,7 +40,7 @@ export function Combobox({
   desabilitado = false,
   erro,
   dica,
-}: Props) {
+}: Readonly<Props>) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
   const [ativo, setAtivo] = useState(0);

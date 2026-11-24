@@ -129,7 +129,7 @@ export class TicketService {
     }
 
     const item = await this.repository.findItem(itemId);
-    if (!item || item.reservationId !== ticketId) {
+    if (item?.reservationId !== ticketId) {
       throw new TicketItemNotFoundError(itemId);
     }
 
@@ -155,7 +155,7 @@ export class TicketService {
 
 
     const item = await this.repository.findItem(itemId);
-    if (!item || item.reservationId !== ticketId) {
+    if (item?.reservationId !== ticketId) {
       throw new TicketItemNotFoundError(itemId);
     }
 

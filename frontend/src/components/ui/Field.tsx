@@ -15,6 +15,13 @@ const CONTROLE =
 const NORMAL = "border-line-strong hover:border-[color-mix(in_oklab,var(--border-strong),var(--text)_22%)]";
 const COM_ERRO = "border-danger";
 
+function idDescricao(idCampo: string, erro?: string, dica?: ReactNode): string | undefined {
+  if (erro) {
+    return `${idCampo}-erro`;
+  }
+  return dica ? `${idCampo}-dica` : undefined;
+}
+
 interface BaseProps {
   rotulo: string;
   /** Texto de apoio permanente; some quando ha erro. */
@@ -99,7 +106,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           ref={ref}
           id={idCampo}
           aria-invalid={erro ? true : undefined}
-          aria-describedby={erro ? `${idCampo}-erro` : dica ? `${idCampo}-dica` : undefined}
+          aria-describedby={idDescricao(idCampo, erro, dica)}
           className={cn(
             CONTROLE,
             "h-11",
@@ -143,7 +150,7 @@ export const SelectNativo = forwardRef<HTMLSelectElement, SelectNativoProps>(
           ref={ref}
           id={idCampo}
           aria-invalid={erro ? true : undefined}
-          aria-describedby={erro ? `${idCampo}-erro` : dica ? `${idCampo}-dica` : undefined}
+          aria-describedby={idDescricao(idCampo, erro, dica)}
           className={cn(CONTROLE, "h-11 pr-9 appearance-none", erro ? COM_ERRO : NORMAL, className)}
           style={{
             backgroundImage:

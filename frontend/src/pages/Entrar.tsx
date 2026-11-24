@@ -19,6 +19,9 @@ function destinoPorPapel(role: UserRole): string {
   return role === "user" ? "/garagem" : "/painel";
 }
 
+const AVISO_TOPO =
+  "mt-5 block rounded-[var(--radius-sm)] border px-3.5 py-3 text-[13.5px] leading-snug";
+
 const MENSAGEM_CONFIRMACAO: Record<string, { tom: "ok" | "erro"; texto: string }> = {
   ok: {
     tom: "ok",
@@ -92,11 +95,11 @@ export default function Entrar() {
           );
         }
       }
-    } catch (falha) {
-      setConfirmacaoPendente(falha instanceof ApiError && falha.status === 403);
+    } catch (error) {
+      setConfirmacaoPendente(error instanceof ApiError && error.status === 403);
       setErro(
-        falha instanceof ApiError
-          ? falha.message
+        error instanceof ApiError
+          ? error.message
           : "Não conseguimos falar com o servidor. Tente de novo."
       );
     } finally {
@@ -186,19 +189,21 @@ export default function Entrar() {
               : "Use o e-mail e a senha que você cadastrou."}
           </p>
 
-          {confirmacao && (
-            <p
-              role={confirmacao.tom === "erro" ? "alert" : "status"}
-              className={cn(
-                "mt-5 rounded-[var(--radius-sm)] border px-3.5 py-3 text-[13.5px] leading-snug",
-                confirmacao.tom === "ok"
-                  ? "border-success/35 bg-success-bg text-success"
-                  : "border-danger/35 bg-danger-bg text-danger"
-              )}
-            >
-              {confirmacao.texto}
-            </p>
-          )}
+          {confirmacao &&
+            (confirmacao.tom === "erro" ? (
+              <p
+                role="alert"
+                className={cn(AVISO_TOPO, "border-danger/35 bg-danger-bg text-danger")}
+              >
+                {confirmacao.texto}
+              </p>
+            ) : (
+              <output
+                className={cn(AVISO_TOPO, "border-success/35 bg-success-bg text-success")}
+              >
+                {confirmacao.texto}
+              </output>
+            ))}
 
           <div className="mt-6">
             <Tabs
@@ -262,12 +267,11 @@ export default function Entrar() {
                 </div>
 
                 {aviso && (
-                  <p
-                    role="status"
-                    className="rounded-[var(--radius-sm)] border border-success/35 bg-success-bg px-3.5 py-3 text-[13.5px] leading-snug text-success"
+                  <output
+                    className="block rounded-[var(--radius-sm)] border border-success/35 bg-success-bg px-3.5 py-3 text-[13.5px] leading-snug text-success"
                   >
                     {aviso}
-                  </p>
+                  </output>
                 )}
 
                 {erro && (

@@ -45,9 +45,9 @@ export function ForcaDaSenha({ senha }: Readonly<{ senha: string }>) {
   return (
     <div className="mt-1">
       <div aria-hidden className="flex gap-1">
-        {NIVEIS.map((_, i) => (
+        {NIVEIS.map((faixa, i) => (
           <span
-            key={i}
+            key={faixa.rotulo}
             className={cn(
               "h-1 flex-1 rounded-full transition-colors duration-[var(--dur-fast)]",
               i <= nivel ? classe : "bg-line"

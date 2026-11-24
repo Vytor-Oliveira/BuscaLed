@@ -133,34 +133,18 @@ describe("Entrar", () => {
   });
 
   // O painel é de rep/admin: mandar o cliente pra lá cai em "Sem permissão".
-  it("leva o cliente para a garagem", async () => {
-    montar(fluxoDeLogin("user"));
+  it.each([
+    ["user", "cliente@example.com", "Minha garagem"],
+    ["rep", "rep@example.com", "Painel"],
+    ["admin", "admin@example.com", "Painel"],
+  ] as const)("leva %s para a tela do seu papel", async (papel, email, destino) => {
+    montar(fluxoDeLogin(papel));
 
     await screen.findByLabelText("E-mail");
-    preencher("cliente@example.com", "senha-forte-123");
+    preencher(email, "senha-forte-123");
     fireEvent.click(screen.getByRole("button", { name: "Entrar na minha conta" }));
 
-    expect(await screen.findByText("Minha garagem")).toBeInTheDocument();
-  });
-
-  it("leva o representante para o painel", async () => {
-    montar(fluxoDeLogin("rep"));
-
-    await screen.findByLabelText("E-mail");
-    preencher("rep@example.com", "senha-forte-123");
-    fireEvent.click(screen.getByRole("button", { name: "Entrar na minha conta" }));
-
-    expect(await screen.findByText("Painel")).toBeInTheDocument();
-  });
-
-  it("leva o admin para o painel", async () => {
-    montar(fluxoDeLogin("admin"));
-
-    await screen.findByLabelText("E-mail");
-    preencher("admin@example.com", "senha-forte-123");
-    fireEvent.click(screen.getByRole("button", { name: "Entrar na minha conta" }));
-
-    expect(await screen.findByText("Painel")).toBeInTheDocument();
+    expect(await screen.findByText(destino)).toBeInTheDocument();
   });
 
   it("mostra a mensagem que o backend devolveu quando a senha está errada", async () => {

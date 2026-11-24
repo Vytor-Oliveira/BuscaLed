@@ -96,7 +96,12 @@ export function Combobox({
     }
   }
 
-  const descricao = erro ? `${idBase}-erro` : dica ? `${idBase}-dica` : undefined;
+  let descricao: string | undefined;
+  if (erro) {
+    descricao = `${idBase}-erro`;
+  } else if (dica) {
+    descricao = `${idBase}-dica`;
+  }
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -114,6 +119,7 @@ export function Combobox({
             type="button"
             role="combobox"
             aria-expanded={aberto}
+            aria-controls={`${idBase}-lista`}
             aria-haspopup="listbox"
             aria-invalid={erro ? true : undefined}
             aria-describedby={descricao}

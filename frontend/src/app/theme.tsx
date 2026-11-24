@@ -56,9 +56,9 @@ export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
   useEffect(() => {
     const raiz = document.documentElement;
     if (tema === "sistema") {
-      raiz.removeAttribute("data-theme");
+      delete raiz.dataset.theme;
     } else {
-      raiz.setAttribute("data-theme", tema === "escuro" ? "dark" : "light");
+      raiz.dataset.theme = tema === "escuro" ? "dark" : "light";
     }
   }, [tema]);
 
@@ -75,14 +75,10 @@ export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
   }, []);
 
-  const valor = useMemo<Contexto>(
-    () => ({
-      tema,
-      resolvido: tema === "sistema" ? (sistemaEscuro ? "escuro" : "claro") : tema,
-      definirTema,
-    }),
-    [tema, sistemaEscuro, definirTema]
-  );
+  const valor = useMemo<Contexto>(() => {
+    const doSistema = sistemaEscuro ? "escuro" : "claro";
+    return { tema, resolvido: tema === "sistema" ? doSistema : tema, definirTema };
+  }, [tema, sistemaEscuro, definirTema]);
 
   return <ThemeContext.Provider value={valor}>{children}</ThemeContext.Provider>;
 }

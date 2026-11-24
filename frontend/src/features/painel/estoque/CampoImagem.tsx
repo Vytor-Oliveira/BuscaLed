@@ -37,9 +37,9 @@ export function CampoImagem({ valor, onMudar }: Readonly<Props>) {
     setEnviando(true);
     try {
       onMudar(await enviarImagemProduto(arquivo));
-    } catch (falha) {
+    } catch (error) {
       setErro(
-        falha instanceof ApiError ? falha.message : "Não foi possível enviar a imagem."
+        error instanceof ApiError ? error.message : "Não foi possível enviar a imagem."
       );
     } finally {
       setEnviando(false);

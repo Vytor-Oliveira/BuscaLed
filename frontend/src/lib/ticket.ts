@@ -3,7 +3,7 @@ import type { TicketStatus } from "../api/tickets";
 // O backend identifica o pedido por UUID; o RFC mostra um número curto. Até
 // existir sequencial no banco, o sufixo do próprio id serve de rótulo estável.
 export function numeroTicket(id: string): string {
-  return `TKT-${id.replace(/-/g, "").slice(-4).toUpperCase()}`;
+  return `TKT-${id.replaceAll("-", "").slice(-4).toUpperCase()}`;
 }
 
 export const ROTULO_STATUS: Record<TicketStatus, string> = {

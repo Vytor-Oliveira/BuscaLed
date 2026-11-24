@@ -216,7 +216,9 @@ describe("Analytics routes (integração real — Postgres, sem mocks)", () => {
     const dias = searchesPerDay.map((p: { day: string }) => p.day);
     expect(dias).toEqual([...dias].sort());
     const emDias = (d: string) => new Date(`${d}T12:00:00Z`).getTime() / 86400000;
-    expect(dias.length).toBe(Math.round(emDias(dias[dias.length - 1]) - emDias(dias[0])) + 1);
+    expect(dias).toHaveLength(
+      Math.round(emDias(dias[dias.length - 1]) - emDias(dias[0])) + 1
+    );
   });
 
   // 02:30Z e 23:30 do dia anterior em Brasilia: a busca tem que ser contada

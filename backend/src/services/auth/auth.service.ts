@@ -99,8 +99,7 @@ export class AuthService {
     const user = await this.userRepository.findByConfirmationToken(token);
 
     if (
-      !user ||
-      !user.emailConfirmationExpiresAt ||
+      !user?.emailConfirmationExpiresAt ||
       user.emailConfirmationExpiresAt.getTime() < Date.now()
     ) {
       throw new InvalidOrExpiredTokenError();
@@ -122,7 +121,7 @@ export class AuthService {
     const user = await this.userRepository.findByEmail(email);
 
     // Conta de Google não tem senha para redefinir.
-    if (!user || !user.passwordHash) {
+    if (!user?.passwordHash) {
       return;
     }
 
@@ -139,8 +138,7 @@ export class AuthService {
     const user = await this.userRepository.findByPasswordResetToken(token);
 
     if (
-      !user ||
-      !user.passwordResetExpiresAt ||
+      !user?.passwordResetExpiresAt ||
       user.passwordResetExpiresAt.getTime() < Date.now()
     ) {
       throw new InvalidOrExpiredTokenError();
@@ -160,7 +158,7 @@ export class AuthService {
     const email = normalizeEmail(input.email);
     const user = await this.userRepository.findByEmail(email);
 
-    if (!user || !user.passwordHash) {
+    if (!user?.passwordHash) {
       throw new InvalidCredentialsError();
     }
 

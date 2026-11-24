@@ -14,9 +14,9 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import { ROTULO_POSICAO, type LightingPosition } from "../api/compatibility";
+import { type LightingPosition } from "../api/compatibility";
 
-export { ROTULO_POSICAO };
+export { ROTULO_POSICAO } from "../api/compatibility";
 export type { LightingPosition };
 
 type Grupo = "dianteira" | "traseira" | "interna";

@@ -1,6 +1,12 @@
 import { Lightbulb } from "lucide-react";
 import { cn } from "../../lib/cn";
 
+const TAMANHOS = {
+  sm: { caixa: "size-7", icone: "size-4", texto: "text-[15px]" },
+  md: { caixa: "size-8", icone: "size-4.5", texto: "text-[17px]" },
+  lg: { caixa: "size-10", icone: "size-5.5", texto: "text-xl" },
+} as const;
+
 /**
  * "BuscaLED" com o LED em peso e cor. O ícone de lâmpada é compromisso de
  * marca registrado em PRODUCT.md.
@@ -12,9 +18,7 @@ export function Marca({
   className?: string;
   tamanho?: "sm" | "md" | "lg";
 }>) {
-  const caixa = tamanho === "lg" ? "size-10" : tamanho === "sm" ? "size-7" : "size-8";
-  const icone = tamanho === "lg" ? "size-5.5" : tamanho === "sm" ? "size-4" : "size-4.5";
-  const texto = tamanho === "lg" ? "text-xl" : tamanho === "sm" ? "text-[15px]" : "text-[17px]";
+  const { caixa, icone, texto } = TAMANHOS[tamanho];
 
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>

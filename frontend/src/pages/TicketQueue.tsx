@@ -23,6 +23,13 @@ const PERIODOS = [
   { valor: 90, rotulo: "Últimos 90 dias" },
 ];
 
+const ROTULO_ABA: Record<TicketStatus, string> = {
+  PENDENTE: "Novos",
+  CONFIRMADO: "Em atendimento",
+  CONCLUIDO: "Concluídos",
+  CANCELADO: "Cancelados",
+};
+
 function resumoItens(ticket: Ticket): string {
   return ticket.items.map((i) => `${i.quantity}x ${i.ledModelName}`).join(", ");
 }
@@ -46,12 +53,14 @@ export default function TicketQueue() {
     [fila.filtrados, idNaRota]
   );
 
+  const query = params.toString() ? `?${params}` : "";
+
   function abrir(ticket: Ticket) {
-    navigate(`/painel/tickets/${ticket.id}${params.toString() ? `?${params}` : ""}`);
+    navigate(`/painel/tickets/${ticket.id}${query}`);
   }
 
   function fecharDetalhe() {
-    navigate(`/painel/tickets${params.toString() ? `?${params}` : ""}`);
+    navigate(`/painel/tickets${query}`);
   }
 
   function exportar() {
@@ -78,13 +87,7 @@ export default function TicketQueue() {
           </TabsTrigger>
           {ORDEM_STATUS.map((s) => (
             <TabsTrigger key={s} value={s} contador={fila.contadores[s]}>
-              {s === "PENDENTE"
-                ? "Novos"
-                : s === "CONFIRMADO"
-                  ? "Em atendimento"
-                  : s === "CONCLUIDO"
-                    ? "Concluídos"
-                    : "Cancelados"}
+              {ROTULO_ABA[s]}
             </TabsTrigger>
           ))}
         </TabsList>

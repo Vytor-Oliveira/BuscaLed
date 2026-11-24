@@ -89,10 +89,10 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Readonly<Props>
       // RN02: daqui para frente só marca, modelo e ano seguem viagem.
       setPlaca("");
       onBuscar(veiculo);
-    } catch (erro) {
+    } catch (error) {
       // KPI de fallback automático: a falha move o visitante para o manual,
       // já com o aviso do que aconteceu, em vez de deixá-lo travado.
-      setFalhaDaPlaca(interpretarFalhaDePlaca(erro));
+      setFalhaDaPlaca(interpretarFalhaDePlaca(error));
       setAba("manual");
     } finally {
       setConsultando(false);
@@ -176,8 +176,7 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Readonly<Props>
 
         <TabsContent value="manual" className={cn(heroi ? "p-5 pt-4" : "p-4 pt-3")}>
           {falhaDaPlaca && (
-            <p
-              role="status"
+            <output
               className={cn(
                 "mb-4 flex items-start gap-2 rounded-[var(--radius-sm)] border border-warning/35",
                 "bg-warning-bg px-3 py-2.5 text-[13px] leading-snug text-warning"
@@ -195,7 +194,7 @@ export function SeletorVeiculo({ onBuscar, variante = "heroi" }: Readonly<Props>
                   </>
                 ) : null}
               </span>
-            </p>
+            </output>
           )}
 
           <form onSubmit={enviarManual} noValidate className="flex flex-col gap-4">

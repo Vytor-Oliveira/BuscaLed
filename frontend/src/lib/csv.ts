@@ -4,8 +4,10 @@ import { numeroTicket, ROTULO_STATUS } from "./ticket";
 // As aspas resolvem separador e quebra de linha, mas nao impedem o Excel de
 // avaliar celula que comeca com = + - @ como formula. Telefone, e-mail e nome
 // de produto vem de fora: o apostrofo forca leitura como texto.
-const campo = (v: string) =>
-  `"${(/^[=+\-@\t\r]/.test(v) ? `'${v}` : v).replace(/"/g, '""')}"`;
+const campo = (v: string) => {
+  const seguro = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+  return `"${seguro.replaceAll('"', '""')}"`;
+};
 
 const COLUNAS = ["Ticket", "Cliente", "Telefone", "Veículo", "Produtos", "Data", "Status"];
 

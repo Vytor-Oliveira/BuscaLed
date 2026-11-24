@@ -53,7 +53,7 @@ function Dado({
 
 export function DetalheDoPedido({ ticket, onFechar, onTrocar }: Readonly<Props>) {
   const acoes = useAcoesDoPedido();
-  const [confirmandoCancelamento, setConfirmando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
 
   if (!ticket) {
     return null;
@@ -221,7 +221,7 @@ export function DetalheDoPedido({ ticket, onFechar, onTrocar }: Readonly<Props>)
       </RadixDialog.Portal>
 
       <Confirmacao
-        aberto={confirmandoCancelamento}
+        aberto={confirmando}
         onFechar={() => setConfirmando(false)}
         onConfirmar={() => {
           setConfirmando(false);

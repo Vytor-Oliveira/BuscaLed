@@ -28,6 +28,12 @@ const SELO: Record<Exclude<Situacao, "todos">, { tom: TomBadge; rotulo: string }
   esgotado: { tom: "danger", rotulo: "Esgotado" },
 };
 
+const COR_DA_BARRA: Record<Exclude<Situacao, "todos">, string> = {
+  ok: "bg-success",
+  baixo: "bg-warning",
+  esgotado: "bg-danger",
+};
+
 function BarraDeEstoque({ produto }: Readonly<{ produto: LedModel }>) {
   const situacao = situacaoDe(produto);
   // A escala é o dobro do mínimo: é a referência que diz se está perto da linha.
@@ -41,11 +47,7 @@ function BarraDeEstoque({ produto }: Readonly<{ produto: LedModel }>) {
         <div
           className={cn(
             "absolute inset-y-0 left-0 rounded-full",
-            situacao === "esgotado"
-              ? "bg-danger"
-              : situacao === "baixo"
-                ? "bg-warning"
-                : "bg-success"
+            COR_DA_BARRA[situacao]
           )}
           style={{ width: `${largura}%` }}
         />
@@ -123,7 +125,7 @@ export default function Stock() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div role="group" aria-label="Resumo do catálogo" className="grid gap-3 sm:grid-cols-3">
+      <fieldset aria-label="Resumo do catálogo" className="grid min-w-0 gap-3 sm:grid-cols-3">
         {[
           { rotulo: "Produtos no catálogo", valor: resumo.total },
           { rotulo: "Em alerta", valor: resumo.baixo },
@@ -145,7 +147,7 @@ export default function Stock() {
             )}
           </div>
         ))}
-      </div>
+      </fieldset>
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-48 flex-1">

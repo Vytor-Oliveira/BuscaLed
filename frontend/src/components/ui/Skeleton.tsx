@@ -16,13 +16,20 @@ export function Skeleton({ className }: Readonly<{ className?: string }>) {
   );
 }
 
+function larguraDaLinha(i: number, total: number): string {
+  if (i === total - 1) {
+    return "w-2/5";
+  }
+  return i % 2 ? "w-4/5" : "w-full";
+}
+
 export function SkeletonTexto({ linhas = 3 }: Readonly<{ linhas?: number }>) {
   return (
     <div className="flex flex-col gap-2">
       {Array.from({ length: linhas }, (_, i) => (
         <Skeleton
           key={i}
-          className={cn("h-3.5", i === linhas - 1 ? "w-2/5" : i % 2 ? "w-4/5" : "w-full")}
+          className={cn("h-3.5", larguraDaLinha(i, linhas))}
         />
       ))}
     </div>

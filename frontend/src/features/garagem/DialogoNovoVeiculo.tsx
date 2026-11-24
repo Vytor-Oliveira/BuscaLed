@@ -147,8 +147,7 @@ export function DialogoNovoVeiculo({
 
         <TabsContent value="manual" className="pt-5">
           {avisoFallback && (
-            <p
-              role="status"
+            <output
               className={cn(
                 "mb-4 flex items-start gap-2 rounded-[var(--radius-sm)] border border-warning/35",
                 "bg-warning-bg px-3 py-2.5 text-[13px] leading-snug text-warning"
@@ -156,7 +155,7 @@ export function DialogoNovoVeiculo({
             >
               <AlertTriangle aria-hidden className="mt-px size-4 shrink-0" />
               {avisoFallback}
-            </p>
+            </output>
           )}
 
           <form onSubmit={enviarManual} noValidate className="flex flex-col gap-4">

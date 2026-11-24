@@ -5,6 +5,8 @@ import { formatarTotal } from "../../lib/formato";
 import { cn } from "../../lib/cn";
 import { useCarrinho, type VeiculoDoCarrinho } from "../reserva/CarrinhoContext";
 
+const rotuloKits = (n: number) => `${n} ${n === 1 ? "kit" : "kits"}`;
+
 /**
  * Resumo fixo da seleção. No desktop é coluna grudada; no celular é barra
  * inferior, que é onde o polegar alcança.
@@ -120,9 +122,7 @@ export function ResumoReserva({ veiculo }: Readonly<{ veiculo: VeiculoDoCarrinho
           <div className="container-app flex items-center justify-between gap-4 py-3">
             <div className="min-w-0">
               <p data-numeros className="text-[14px] font-bold text-ink">
-                {totalCents > 0
-                  ? formatarTotal(totalCents)
-                  : `${total} ${total === 1 ? "kit" : "kits"}`}
+                {totalCents > 0 ? formatarTotal(totalCents) : rotuloKits(total)}
               </p>
               <p className="truncate text-[12.5px] text-muted">
                 <span data-numeros>{total}</span> em {itens.length}{" "}

@@ -1,8 +1,10 @@
 name: Deploy
 
-# Publica no Azure a cada merge na main, e sob demanda pelo botao do Actions.
+# Publica no Azure depois que o CI da main termina, e sob demanda pelo botao do Actions.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -16,12 +18,17 @@ jobs:
   deploy:
     name: Publica no Azure App Service
     runs-on: ubuntu-latest
+    # completed tambem dispara quando o CI falha.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: producao
       url: ${{ steps.publicacao.outputs.webapp-url }}
 
     steps:
+      # Publica o commit que o CI testou, nao um push que chegou depois.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:

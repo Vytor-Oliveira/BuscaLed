@@ -215,10 +215,12 @@ export class TicketService {
         tx
       );
 
+      // Sequencial de propósito: o Prisma não admite consultas concorrentes no
+      // mesmo cliente de transação interativa.
       const baixados: StockLevel[] = [];
       for (const item of atualizado.items) {
         baixados.push(
-          await this.stockService.decrementStock(item.ledModelId, item.quantity, tx)
+          await this.stockService.decrementStock(item.ledModelId, item.quantity, tx) // NOSONAR
         );
       }
 
